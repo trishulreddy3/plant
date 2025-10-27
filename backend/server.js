@@ -1156,8 +1156,8 @@ app.post('/api/auth/login', async (req, res) => {
             user: {
               id: `admin-${sanitizedCompanyName}`,
               email: admin.email,
-              role: 'plantadmin',
-              name: `${sanitizedCompanyName} Admin`,
+              role: 'plant_admin',
+              name: admin.name || `${sanitizedCompanyName} Admin`,
               companyName: sanitizedCompanyName,
               companyId: companyId
             }
@@ -1215,17 +1215,20 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     
-    // If role is 'management', check entries for management role
+    // If role is 'management', check management.json for management role
     if (role === 'management') {
+      const managementPath = path.join(companyPath, 'management.json');
       const entriesPath = path.join(companyPath, 'entries', 'entries.json');
       try {
-        const entriesData = await fs.readFile(entriesPath, 'utf8');
-        const entries = JSON.parse(entriesData.trim());
+        const managementData = await fs.readFile(managementPath, 'utf8');
+        const managementList = JSON.parse(managementData.trim());
         
-        const managementEntry = entries.find(e => e.email === email && e.password === password && e.role === 'management');
-        if (managementEntry) {
+        const managementUser = managementList.find(m => m.email === email && m.password === password && m.role === 'management');
+        if (managementUser) {
           // Get companyId from plant_details.json
           let companyId = sanitizedCompanyName;
+          let userName = managementUser.email;
+          
           try {
             const plantDetailsPath = path.join(companyPath, 'plant_details.json');
             const plantData = await fs.readFile(plantDetailsPath, 'utf8');
@@ -1235,20 +1238,32 @@ app.post('/api/auth/login', async (req, res) => {
             console.error('Error reading plant details for companyId:', error);
           }
           
+          // Try to get name from entries.json
+          try {
+            const entriesData = await fs.readFile(entriesPath, 'utf8');
+            const entries = JSON.parse(entriesData.trim());
+            const entry = entries.find(e => e.email === email && e.role === 'management');
+            if (entry) {
+              userName = entry.name;
+            }
+          } catch (error) {
+            console.error('Error reading entries file for name:', error);
+          }
+          
           return res.json({
             success: true,
             user: {
-              id: managementEntry.id,
-              email: managementEntry.email,
+              id: managementUser.id,
+              email: managementUser.email,
               role: 'management',
-              name: managementEntry.name,
+              name: userName,
               companyName: sanitizedCompanyName,
               companyId: companyId
             }
           });
         }
       } catch (error) {
-        console.error('Error reading entries file:', error);
+        console.error('Error reading management file:', error);
       }
       
       return res.status(401).json({ 
