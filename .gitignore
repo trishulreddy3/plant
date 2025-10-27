@@ -9,9 +9,13 @@ build/
 # Environment variables
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Allow production env file
+!.env.production
 
 # Logs
 *.log

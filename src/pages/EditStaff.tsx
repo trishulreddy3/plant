@@ -102,7 +102,7 @@ const EditStaff = () => {
       }
 
       // Call update API
-      const API_BASE_URL = 'http://localhost:5000/api';
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://plant-9uk7.onrender.com/api');
       const response = await fetch(`${API_BASE_URL}/companies/${company.id}/entries/${entry.id}`, {
         method: 'PUT',
         headers: {

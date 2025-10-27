@@ -3,26 +3,26 @@
 
 // Determine API base URL based on environment
 const getApiBaseUrl = () => {
-  // Check if we're in development mode
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5000/api';
-  }
-  
-  // Check for custom API URL from environment
+  // Check for custom API URL from environment variable (highest priority)
   if (import.meta.env.VITE_API_BASE_URL) {
+    console.log('🔧 Using VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
     return import.meta.env.VITE_API_BASE_URL;
   }
   
-  // For production, use the production API URL
-  if (import.meta.env.PROD) {
-    return 'https://plant-9uk7.onrender.com/api';
+  // Check if we're in development mode
+  if (import.meta.env.DEV) {
+    console.log('🔧 Using development URL: localhost:5000');
+    return 'http://localhost:5000/api';
   }
   
-  // Default to localhost for development
-  return 'http://localhost:5000/api';
+  // For production, use the production API URL
+  console.log('🔧 Using production URL: plant-9uk7.onrender.com');
+  return 'https://plant-9uk7.onrender.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+console.log('🔧 API Base URL:', API_BASE_URL);
 
 // Debug logging
 console.log('🔧 API Configuration:', {
