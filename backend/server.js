@@ -14,6 +14,7 @@ const corsOptions = {
       'http://localhost:8080',
       'http://localhost:8081',
       'http://localhost:5173',
+      'https://warm-custard-8d018b.netlify.app',  // Specific Netlify frontend
       /\.netlify\.app$/,  // Any Netlify subdomain
       /\.onrender\.com$/  // Any Render subdomain
     ];

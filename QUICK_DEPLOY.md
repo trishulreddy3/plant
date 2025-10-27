@@ -1,7 +1,8 @@
 # Quick Deployment Guide
 
 ## ✅ Prerequisites Completed
-- [x] Backend deployed to Render: https://solarplant.onrender.com
+- [x] Backend deployed to Render: https://plant-9uk7.onrender.com
+- [x] Frontend deployed to Netlify: https://warm-custard-8d018b.netlify.app
 - [x] Environment variables configured
 - [x] CORS configured for Netlify
 - [x] Frontend environment variables set
@@ -36,7 +37,7 @@ netlify deploy --prod
 ## 🧪 Test After Deployment
 
 ### 1. Test Backend (Should already be working)
-Open in browser: https://solarplant.onrender.com/api/status
+Open in browser: https://plant-9uk7.onrender.com/api/status
 
 Expected response:
 ```json
@@ -85,7 +86,7 @@ netlify deploy --prod
 ```
 
 ### Can't connect to backend
-1. Check backend is running: https://solarplant.onrender.com/api/status
+1. Check backend is running: https://plant-9uk7.onrender.com/api/status
 2. Check browser console for CORS errors
 3. Verify Netlify domain in backend CORS settings
 
@@ -96,8 +97,8 @@ netlify deploy --prod
 
 ## 📝 Your Deployment URLs
 
-- **Backend**: https://solarplant.onrender.com
-- **Frontend**: [Your Netlify URL here after deployment]
+- **Backend**: https://plant-9uk7.onrender.com
+- **Frontend**: https://warm-custard-8d018b.netlify.app
 
 ## 🎉 Success Checklist
 

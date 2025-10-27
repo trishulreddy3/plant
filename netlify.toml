@@ -3,7 +3,7 @@
   publish = "dist"
 
 [build.environment]
-  VITE_API_BASE_URL = "https://solarplant.onrender.com/api"
+  VITE_API_BASE_URL = "https://plant-9uk7.onrender.com/api"
 
 [[redirects]]
   from = "/*"

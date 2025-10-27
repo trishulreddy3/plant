@@ -15,7 +15,7 @@ const getApiBaseUrl = () => {
   
   // For production, use the production API URL
   if (import.meta.env.PROD) {
-    return 'https://solarplant.onrender.com/api';
+    return 'https://plant-9uk7.onrender.com/api';
   }
   
   // Default to localhost for development
