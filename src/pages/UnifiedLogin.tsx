@@ -263,15 +263,15 @@ const UnifiedLogin = () => {
           <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
             <h3 className="text-sm font-semibold text-green-800 mb-2">Demo Credentials:</h3>
             <div className="text-xs text-green-700 space-y-1">
-              <div><strong>Plant Admin:</strong></div>
+              <div><strong>Plant Admin (role: admin):</strong></div>
               <div>Company: google</div>
               <div>Email: rakesh@gmail.com</div>
-              <div>Password: Rakesh@123</div>
-              <div className="mt-2"><strong>Technician:</strong></div>
+              <div>Password: rakesh123</div>
+              <div className="mt-2"><strong>Management (role: management):</strong></div>
               <div>Company: google</div>
               <div>Email: trishul@gmail.com</div>
-              <div>Password: DvepmZXb</div>
-              <div className="mt-2"><strong>Super Admin:</strong></div>
+              <div>Password: PB8sHemUglAA</div>
+              <div className="mt-2"><strong>Super Admin (role: admin):</strong></div>
               <div>Company: microsyslogic</div>
               <div>Email: super_admin@microsyslogic.com</div>
               <div>Password: super_admin_password</div>
