@@ -81,7 +81,7 @@ export const getDefaultRouteForRole = (role: UserRole): string => {
   switch (role) {
     case 'superadmin':
     case 'plantadmin':
-    case 'user':
+    case 'technician':
       return ROUTES.DASHBOARD.path;
     default:
       return ROUTES.LOGIN.path;

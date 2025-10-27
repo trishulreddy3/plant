@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Activity, Building2, Clock, User, Trash2, Plus, Edit, Eye, Users } from 'lucide-react';
 import { getCurrentUser, getCompanies } from '@/lib/auth';
 import { getActivityLogsByCompany, getTablesByCompany, getPanelsByCompany, type ActivityLog } from '@/lib/data';
+import BackButton from '@/components/ui/BackButton';
 
 const CompanyMonitor = () => {
   const navigate = useNavigate();
@@ -252,6 +253,9 @@ const CompanyMonitor = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <header className="glass-header sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <Button

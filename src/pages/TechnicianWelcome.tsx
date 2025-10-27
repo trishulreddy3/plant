@@ -4,21 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Sun, ArrowRight, Building2 } from 'lucide-react';
 import { getCurrentUser, isLoggedIn } from '@/lib/auth';
+import BackButton from '@/components/ui/BackButton';
 
-const UserWelcome = () => {
+const TechnicianWelcome = () => {
   const navigate = useNavigate();
   const user = getCurrentUser();
 
   useEffect(() => {
     // Redirect if not logged in or not a user
-    if (!isLoggedIn() || !user || user.role !== 'user') {
+    if (!isLoggedIn() || !user || user.role !== 'technician') {
       navigate('/');
       return;
     }
   }, [navigate, user]);
 
   const handleContinueToDashboard = () => {
-    navigate('/user-dashboard');
+    navigate('/technician-dashboard');
   };
 
   // Show loading if user data is not available yet
@@ -36,6 +37,9 @@ const UserWelcome = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-6">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="w-full max-w-2xl">
         <Card className="glass-card p-8 text-center">
           {/* Company Logo/Icon */}
@@ -115,7 +119,7 @@ const UserWelcome = () => {
   );
 };
 
-export default UserWelcome;
+export default TechnicianWelcome;
 
 
 

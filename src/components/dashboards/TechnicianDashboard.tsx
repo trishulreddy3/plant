@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PanelMonitor from '@/components/panels/PanelMonitor';
 
-const UserDashboard = () => {
+const TechnicianDashboard = () => {
   const { user, logout, companies } = useAuth();
   
   // Get current company data for key generation
@@ -41,4 +41,4 @@ const UserDashboard = () => {
   );
 };
 
-export default UserDashboard;
+export default TechnicianDashboard;

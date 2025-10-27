@@ -47,11 +47,14 @@ app.use(cors(corsOptions));
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf, encoding) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      console.error('Invalid JSON received:', buf.toString());
-      throw new Error('Invalid JSON format');
+    // Only verify JSON if there's actually content
+    if (buf && buf.length > 0) {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        console.error('Invalid JSON received:', buf.toString());
+        throw new Error('Invalid JSON format');
+      }
     }
   }
 }));
@@ -113,8 +116,8 @@ async function findCompanyFolder(companyId) {
 
 // Panel health states and repair simulation
 const PANEL_STATES = {
-  GOOD: { min: 80, max: 100, image: 'image1.png', color: 'blue' },
-  REPAIRING: { min: 20, max: 79, image: 'image2.png', color: 'orange' },
+  GOOD: { min: 50, max: 100, image: 'image1.png', color: 'blue' },
+  REPAIRING: { min: 20, max: 49, image: 'image2.png', color: 'orange' },
   FAULT: { min: 0, max: 19, image: 'image3.png', color: 'red' }
 };
 
@@ -125,58 +128,63 @@ const generatePanelData = (panelCount, voltagePerPanel, currentPerPanel, existin
   const power = [];
   const panelHealth = [];
   const panelStates = [];
+  const actualFaultStatus = []; // Track which panels are actually faulty vs series-affected
   
   // Initialize or continue repair process
   if (existingData && existingData.health && existingData.states) {
     // Continue existing repair process - find the actual faulty panel
     let actualFaultyIndex = -1;
+    let lowestHealth = 100;
     
     for (let i = 0; i < panelCount; i++) {
       let currentHealth = existingData.health[i] || Math.random() * 100;
       let currentState = existingData.states[i] || 'good';
+      let isActuallyFaulty = false;
       
       // Identify the actual faulty panel (lowest health that's not good)
-      if (currentHealth < 80) {
-        if (actualFaultyIndex === -1) {
+      if (currentHealth < 50) { // Changed threshold to 50% as per requirement
+        if (actualFaultyIndex === -1 || currentHealth < lowestHealth) {
           actualFaultyIndex = i;
-        } else if (currentHealth < panelHealth[actualFaultyIndex]) {
-          actualFaultyIndex = i;
+          lowestHealth = currentHealth;
         }
       }
       
-          // Simulate repair process ONLY for the actual faulty panel
-          if (i === actualFaultyIndex && currentHealth < 80) {
-            if (currentState === 'fault' && currentHealth < 20) {
-              // Gradually repair fault panels (increase health by 2-5% per cycle)
-              currentHealth += 2 + Math.random() * 3;
-            } else if (currentState === 'repairing' && currentHealth >= 20 && currentHealth < 80) {
-              // Gradually repair repairing panels (increase health by 3-7% per cycle)
-              currentHealth += 3 + Math.random() * 4;
-            }
-            
-            // Determine state based on current health
-            if (currentHealth < 20) {
-              currentState = 'fault';
-            } else if (currentHealth < 80) {
-              currentState = 'repairing';
-            } else {
-              currentState = 'good';
-            }
-          } else if (currentState === 'good' && currentHealth >= 80) {
-            // Maintain good condition with slight variations for healthy panels
-            currentHealth = Math.max(80, Math.min(100, currentHealth + (Math.random() - 0.5) * 2));
-          }
+      // Simulate repair process ONLY for the actual faulty panel
+      if (i === actualFaultyIndex && currentHealth < 50) {
+        isActuallyFaulty = true;
+        if (currentState === 'fault' && currentHealth < 20) {
+          // Gradually repair fault panels (increase health by 2-5% per cycle)
+          currentHealth += 2 + Math.random() * 3;
+        } else if (currentState === 'repairing' && currentHealth >= 20 && currentHealth < 50) {
+          // Gradually repair repairing panels (increase health by 3-7% per cycle)
+          currentHealth += 3 + Math.random() * 4;
+        }
+        
+        // Determine state based on current health
+        if (currentHealth < 20) {
+          currentState = 'fault';
+        } else if (currentHealth < 50) {
+          currentState = 'repairing';
+        } else {
+          currentState = 'good';
+        }
+      } else if (currentState === 'good' && currentHealth >= 50) {
+        // Maintain good condition with slight variations for healthy panels
+        currentHealth = Math.max(50, Math.min(100, currentHealth + (Math.random() - 0.5) * 2));
+      }
       
       panelHealth.push(Math.round(currentHealth * 10) / 10);
       panelStates.push(currentState);
+      actualFaultStatus.push(isActuallyFaulty);
     }
   } else {
     // Initialize new panel data
     for (let i = 0; i < panelCount; i++) {
-      // Start with good condition (80-100% health)
-      const health = 80 + Math.random() * 20;
+      // Start with good condition (50-100% health)
+      const health = 50 + Math.random() * 50;
       panelHealth.push(Math.round(health * 10) / 10);
       panelStates.push('good');
+      actualFaultStatus.push(false);
     }
   }
   
@@ -184,28 +192,39 @@ const generatePanelData = (panelCount, voltagePerPanel, currentPerPanel, existin
   const hasExistingFault = panelStates.some(state => state === 'fault' || state === 'repairing');
   const allHealthy = panelStates.every(state => state === 'good');
   
-  if (allHealthy && Math.random() < 0.3) { // 30% chance to introduce a fault
+  if (allHealthy && Math.random() < 0.8) { // 80% chance to introduce a fault for testing
     // Randomly select ONE panel to become faulty
     const faultyPanelIndex = Math.floor(Math.random() * panelCount);
     
-    if (Math.random() < 0.3) {
-      // 30% chance of fault (dust, damage, etc.)
+    if (Math.random() < 0.4) {
+      // 40% chance of fault (dust, damage, etc.) - health < 20%
       panelHealth[faultyPanelIndex] = Math.random() * 19; // 0-19%
       panelStates[faultyPanelIndex] = 'fault';
     } else {
-      // 70% chance of repairing (cleaning, minor issues)
-      panelHealth[faultyPanelIndex] = 20 + Math.random() * 59; // 20-79%
+      // 60% chance of repairing (cleaning, minor issues) - health 20-49%
+      panelHealth[faultyPanelIndex] = 20 + Math.random() * 29; // 20-49%
       panelStates[faultyPanelIndex] = 'repairing';
     }
+    
+    // Mark this panel as actually faulty
+    actualFaultStatus[faultyPanelIndex] = true;
   }
   
   // Find the weakest panel (bottleneck in series connection)
   const weakestHealth = Math.min(...panelHealth);
-  const weakestState = panelStates[panelHealth.indexOf(weakestHealth)];
   const actualFaultyIndex = panelHealth.indexOf(weakestHealth);
   
+  // Determine series state based on weakest panel
+  let seriesState;
+  if (weakestHealth < 20) {
+    seriesState = 'fault';
+  } else if (weakestHealth < 50) {
+    seriesState = 'repairing';
+  } else {
+    seriesState = 'good';
+  }
+  
   // Apply PROPER series connection logic - all panels FROM the faulty panel onwards show the same status
-  const seriesState = weakestState;
   const seriesHealth = weakestHealth;
   
   // Generate data for each panel
@@ -216,15 +235,15 @@ const generatePanelData = (panelCount, voltagePerPanel, currentPerPanel, existin
     
     // Current is limited by the weakest panel in series
     let currentMultiplier;
-    if (seriesHealth >= 80) {
+    if (seriesHealth >= 50) {
       // Perfect health: 95-100% current
       currentMultiplier = 0.95 + Math.random() * 0.05;
     } else if (seriesHealth >= 20) {
       // Repairing mode: 20-80% current based on health
-      currentMultiplier = 0.2 + (seriesHealth / 100) * 0.6;
+      currentMultiplier = 0.2 + (seriesHealth / 50) * 0.6; // Adjusted for 50% threshold
     } else {
       // Fault condition: 5-20% current
-      currentMultiplier = 0.05 + (seriesHealth / 100) * 0.15;
+      currentMultiplier = 0.05 + (seriesHealth / 20) * 0.15; // Adjusted for 20% threshold
     }
     
     const seriesLimitedCurrent = currentPerPanel * currentMultiplier;
@@ -235,10 +254,21 @@ const generatePanelData = (panelCount, voltagePerPanel, currentPerPanel, existin
     current.push(actualCurrent);
     power.push(actualPower);
     
-    // Apply series connection logic - all panels FROM the faulty panel onwards show the same visual state
-    if (actualFaultyIndex !== null && i >= actualFaultyIndex) {
-      // Update visual state for all panels from faulty panel onwards
-      panelStates[i] = panelStates[actualFaultyIndex];
+    // Apply series connection logic - all panels FROM the faulty panel onwards show the same visual state and health
+    if (actualFaultyIndex !== -1 && i >= actualFaultyIndex) {
+      // Update visual state and health for all panels from faulty panel onwards
+      panelStates[i] = seriesState;
+      panelHealth[i] = seriesHealth; // All panels from faulty panel onwards have same health
+      
+      // Only the actual faulty panel is marked as actually faulty
+      if (i === actualFaultyIndex) {
+        actualFaultStatus[i] = true;
+      } else {
+        actualFaultStatus[i] = false; // Series-affected panels are not actually faulty
+      }
+    } else {
+      // Reset actualFaultStatus for panels before the faulty panel
+      actualFaultStatus[i] = false;
     }
   }
   
@@ -248,9 +278,10 @@ const generatePanelData = (panelCount, voltagePerPanel, currentPerPanel, existin
     power, 
     health: panelHealth, 
     states: panelStates,
+    actualFaultStatus, // New field to track actual faulty panels
     seriesState,
     seriesHealth: Math.round(seriesHealth * 10) / 10,
-    actualFaultyIndex: actualFaultyIndex !== -1 && weakestHealth < 80 ? actualFaultyIndex : null
+    actualFaultyIndex: actualFaultyIndex !== -1 && weakestHealth < 50 ? actualFaultyIndex : null
   };
 };
 
@@ -358,9 +389,25 @@ app.post('/api/companies', async (req, res) => {
       JSON.stringify(adminCredentials, null, 2)
     );
     
-    // Create users file (initially empty)
+    // Create technicians file (initially empty)
     await fs.writeFile(
-      path.join(companyPath, 'users.json'), 
+      path.join(companyPath, 'technicians.json'), 
+      JSON.stringify([], null, 2)
+    );
+    
+    // Create management file (initially empty)
+    await fs.writeFile(
+      path.join(companyPath, 'management.json'), 
+      JSON.stringify([], null, 2)
+    );
+    
+    // Create entries folder
+    const entriesFolder = path.join(companyPath, 'entries');
+    await fs.mkdir(entriesFolder, { recursive: true });
+    
+    // Create entries.json file (initially empty)
+    await fs.writeFile(
+      path.join(entriesFolder, 'entries.json'), 
       JSON.stringify([], null, 2)
     );
     
@@ -419,8 +466,8 @@ app.get('/api/companies/:companyId/admin', async (req, res) => {
   }
 });
 
-// Get users
-app.get('/api/companies/:companyId/users', async (req, res) => {
+// Get technicians
+app.get('/api/companies/:companyId/technicians', async (req, res) => {
   try {
     const { companyId } = req.params;
     const companyPath = await findCompanyFolder(companyId);
@@ -429,22 +476,315 @@ app.get('/api/companies/:companyId/users', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
     
-    const usersPath = path.join(companyPath, 'users.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
     
-    const usersData = await fs.readFile(usersPath, 'utf8');
+    const techniciansData = await fs.readFile(techniciansPath, 'utf8');
     // Add better error handling for JSON parsing
-    const users = JSON.parse(usersData.trim());
+    const technicians = JSON.parse(techniciansData.trim());
     
-    res.json(users);
+    res.json(technicians);
   } catch (error) {
-    console.error('Error reading users:', error);
-    // Return empty array if users.json is corrupted instead of 500 error
+    console.error('Error reading technicians:', error);
+    // Return empty array if technicians.json is corrupted instead of 500 error
     res.json([]);
   }
 });
 
-// Add user to company
-app.post('/api/companies/:companyId/users', async (req, res) => {
+// Add staff entry to company
+app.post('/api/companies/:companyId/entries', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { companyName, name, role, email, phoneNumber, password, createdBy } = req.body;
+    
+    const companyPath = await findCompanyFolder(companyId);
+    
+    if (!companyPath) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    // Create entries folder if it doesn't exist
+    const entriesFolder = path.join(companyPath, 'entries');
+    try {
+      await fs.access(entriesFolder);
+    } catch (error) {
+      await fs.mkdir(entriesFolder, { recursive: true });
+    }
+    
+    const entriesPath = path.join(entriesFolder, 'entries.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
+    const adminPath = path.join(companyPath, 'admin.json');
+    const managementPath = path.join(companyPath, 'management.json');
+    
+    // Read existing entries
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+    } catch (error) {
+      entries = [];
+    }
+    
+    // Create new staff entry (without password)
+    const newEntry = {
+      id: `entry-${Date.now()}`,
+      companyName,
+      name,
+      role,
+      email,
+      phoneNumber,
+      createdAt: new Date().toISOString(),
+      createdBy: createdBy || 'super_admin'
+    };
+    
+    // Add entry to array
+    entries.push(newEntry);
+    
+    // Create credential entry with password
+    const newCredential = {
+      id: `user-${Date.now()}`,
+      email,
+      password,
+      role,
+      createdAt: new Date().toISOString(),
+      createdBy: createdBy || 'super_admin'
+    };
+    
+    // Write to appropriate file based on role
+    if (role === 'admin') {
+      // For admin, update admin.json
+      let adminData = {};
+      try {
+        const adminFileData = await fs.readFile(adminPath, 'utf8');
+        adminData = JSON.parse(adminFileData.trim());
+      } catch (error) {
+        // If admin.json doesn't exist, create new structure
+        adminData = { email, password, name, createdAt: new Date().toISOString() };
+      }
+      
+      // Write admin.json
+      await fs.writeFile(adminPath, JSON.stringify(adminData, null, 2));
+      
+      // Also add to technicians.json for backward compatibility
+      let technicians = [];
+      try {
+        const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+        technicians = JSON.parse(techniciansData.trim());
+      } catch (error) {
+        technicians = [];
+      }
+      technicians.push(newCredential);
+      await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
+      
+    } else if (role === 'management') {
+      // For management, update management.json
+      let managementData = [];
+      try {
+        const managementFileData = await fs.readFile(managementPath, 'utf8');
+        managementData = JSON.parse(managementFileData.trim());
+      } catch (error) {
+        managementData = [];
+      }
+      
+      managementData.push(newCredential);
+      await fs.writeFile(managementPath, JSON.stringify(managementData, null, 2));
+      
+      // Also add to technicians.json for backward compatibility
+      let technicians = [];
+      try {
+        const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+        technicians = JSON.parse(techniciansData.trim());
+      } catch (error) {
+        technicians = [];
+      }
+      technicians.push(newCredential);
+      await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
+      
+    } else if (role === 'technician') {
+      // For technician, update technicians.json
+      let technicians = [];
+      try {
+        const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+        technicians = JSON.parse(techniciansData.trim());
+      } catch (error) {
+        technicians = [];
+      }
+      
+      technicians.push(newCredential);
+      await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
+    }
+    
+    // Write entries.json
+    await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+    
+    res.json({ success: true, entry: newEntry });
+  } catch (error) {
+    console.error('Error adding staff entry:', error);
+    res.status(500).json({ error: 'Failed to add staff entry' });
+  }
+});
+
+// Get staff entries for a company
+app.get('/api/companies/:companyId/entries', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const companyPath = await findCompanyFolder(companyId);
+    
+    if (!companyPath) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+    
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      const entries = JSON.parse(entriesData.trim());
+      res.json(entries);
+    } catch (error) {
+      // If entries.json doesn't exist, return empty array
+      res.json([]);
+    }
+  } catch (error) {
+    console.error('Error reading entries:', error);
+    res.status(500).json({ error: 'Failed to read entries' });
+  }
+});
+
+// Update staff entry
+app.put('/api/companies/:companyId/entries/:entryId', async (req, res) => {
+  try {
+    const { companyId, entryId } = req.params;
+    const { companyName, name, role, email, phoneNumber } = req.body;
+    
+    const companyPath = await findCompanyFolder(companyId);
+    
+    if (!companyPath) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+    
+    // Read existing entries
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+    } catch (error) {
+      return res.status(404).json({ error: 'No entries found' });
+    }
+    
+    // Find and update the entry
+    const entryIndex = entries.findIndex(e => e.id === entryId);
+    if (entryIndex === -1) {
+      return res.status(404).json({ error: 'Entry not found' });
+    }
+    
+    // Update the entry
+    entries[entryIndex] = {
+      ...entries[entryIndex],
+      companyName,
+      name,
+      role,
+      email,
+      phoneNumber,
+    };
+    
+    // Write back to file
+    await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+    
+    res.json({ success: true, entry: entries[entryIndex] });
+  } catch (error) {
+    console.error('Error updating entry:', error);
+    res.status(500).json({ error: 'Failed to update entry' });
+  }
+});
+
+// Delete staff entry from a company
+app.delete('/api/companies/:companyId/entries/:entryId', async (req, res) => {
+  try {
+    const { companyId, entryId } = req.params;
+    const companyPath = await findCompanyFolder(companyId);
+    
+    if (!companyPath) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
+    const adminPath = path.join(companyPath, 'admin.json');
+    const managementPath = path.join(companyPath, 'management.json');
+    
+    // Read existing entries
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+    } catch (error) {
+      return res.status(404).json({ error: 'No entries found' });
+    }
+    
+    // Find and remove the entry
+    const entryIndex = entries.findIndex(e => e.id === entryId);
+    if (entryIndex === -1) {
+      return res.status(404).json({ error: 'Entry not found' });
+    }
+    
+    const deletedEntry = entries[entryIndex];
+    entries.splice(entryIndex, 1);
+    
+    // Remove from appropriate file based on role
+    if (deletedEntry.role === 'admin') {
+      // Remove from admin.json
+      try {
+        const adminData = await fs.readFile(adminPath, 'utf8');
+        const admin = JSON.parse(adminData.trim());
+        if (admin.email === deletedEntry.email) {
+          // If deleting the main admin, we might want to keep the file but clear it
+          // or leave it as is for now
+          await fs.writeFile(adminPath, JSON.stringify(admin, null, 2));
+        }
+      } catch (error) {
+        console.error('Error updating admin.json:', error);
+      }
+    } else if (deletedEntry.role === 'management') {
+      // Remove from management.json
+      try {
+        const managementData = await fs.readFile(managementPath, 'utf8');
+        let management = JSON.parse(managementData.trim());
+        management = management.filter(m => m.email !== deletedEntry.email);
+        await fs.writeFile(managementPath, JSON.stringify(management, null, 2));
+      } catch (error) {
+        console.error('Error updating management.json:', error);
+      }
+    }
+    
+    // Also remove from technicians.json by email (for backward compatibility)
+    let technicians = [];
+    try {
+      const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+      technicians = JSON.parse(techniciansData.trim());
+      
+      // Remove technician with matching email
+      technicians = technicians.filter(t => t.email !== deletedEntry.email);
+      
+      // Write technicians back
+      await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
+    } catch (error) {
+      console.error('Error updating technicians.json:', error);
+      // Continue even if technicians update fails
+    }
+    
+    // Write entries back to file
+    await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+    
+    res.json({ success: true, message: 'Entry deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting entry:', error);
+    res.status(500).json({ error: 'Failed to delete entry' });
+  }
+});
+
+// Add technician to company
+app.post('/api/companies/:companyId/technicians', async (req, res) => {
   try {
     const { companyId } = req.params;
     const { email, password, role, createdBy } = req.body;
@@ -455,21 +795,21 @@ app.post('/api/companies/:companyId/users', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
     
-    const usersPath = path.join(companyPath, 'users.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
     
-    // Read existing users
-    let users = [];
+    // Read existing technicians
+    let technicians = [];
     try {
-      const usersData = await fs.readFile(usersPath, 'utf8');
-      users = JSON.parse(usersData.trim());
+      const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+      technicians = JSON.parse(techniciansData.trim());
     } catch (error) {
-      // If users.json doesn't exist or is corrupted, start with empty array
-      users = [];
+      // If technicians.json doesn't exist or is corrupted, start with empty array
+      technicians = [];
     }
     
-    // Create new user
-    const newUser = {
-      id: `user-${Date.now()}`,
+    // Create new technician
+    const newTechnician = {
+      id: `technician-${Date.now()}`,
       email,
       password,
       role,
@@ -477,16 +817,16 @@ app.post('/api/companies/:companyId/users', async (req, res) => {
       createdBy: createdBy || 'super_admin'
     };
     
-    // Add user to array
-    users.push(newUser);
+    // Add technician to array
+    technicians.push(newTechnician);
     
     // Write back to file
-    await fs.writeFile(usersPath, JSON.stringify(users, null, 2));
+    await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
     
-    res.json({ success: true, user: newUser });
+    res.json({ success: true, technician: newTechnician });
   } catch (error) {
-    console.error('Error adding user:', error);
-    res.status(500).json({ error: 'Failed to add user' });
+    console.error('Error adding technician:', error);
+    res.status(500).json({ error: 'Failed to add technician' });
   }
 });
 
@@ -762,7 +1102,7 @@ app.post('/api/companies/:companyId/tables/:tableId/add-panels', async (req, res
 // User authentication endpoint
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password, companyName } = req.body;
+    const { email, password, companyName, role } = req.body;
     
     // Validate required fields
     if (!email || !password || !companyName) {
@@ -791,6 +1131,132 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     
+    // If role is 'admin', check admin credentials
+    if (role === 'admin') {
+      const adminPath = path.join(companyPath, 'admin.json');
+      try {
+        const adminData = await fs.readFile(adminPath, 'utf8');
+        const admin = JSON.parse(adminData);
+        
+        if (admin.email === email && admin.password === password) {
+          // Get companyId from plant_details.json
+          let companyId = sanitizedCompanyName;
+          try {
+            const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+            const plantData = await fs.readFile(plantDetailsPath, 'utf8');
+            const plant = JSON.parse(plantData);
+            companyId = plant.companyId;
+          } catch (error) {
+            console.error('Error reading plant details for companyId:', error);
+          }
+          
+          return res.json({
+            success: true,
+            user: {
+              id: `admin-${sanitizedCompanyName}`,
+              email: admin.email,
+              role: 'plantadmin',
+              name: `${sanitizedCompanyName} Admin`,
+              companyName: sanitizedCompanyName,
+              companyId: companyId
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error reading admin file:', error);
+      }
+      
+      return res.status(401).json({ 
+        error: 'Invalid admin credentials',
+        message: 'Email or password is incorrect for admin role' 
+      });
+    }
+    
+    // If role is 'technician', check technician credentials
+    if (role === 'technician') {
+      const techniciansPath = path.join(companyPath, 'technicians.json');
+      try {
+        const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+        const technicians = JSON.parse(techniciansData.trim());
+        
+        const technician = technicians.find(t => t.email === email && t.password === password);
+        if (technician) {
+          // Get companyId from plant_details.json
+          let companyId = sanitizedCompanyName;
+          try {
+            const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+            const plantData = await fs.readFile(plantDetailsPath, 'utf8');
+            const plant = JSON.parse(plantData);
+            companyId = plant.companyId;
+          } catch (error) {
+            console.error('Error reading plant details for companyId:', error);
+          }
+          
+          return res.json({
+            success: true,
+            user: {
+              id: technician.id,
+              email: technician.email,
+              role: 'technician',
+              name: technician.name || technician.email,
+              companyName: sanitizedCompanyName,
+              companyId: companyId
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error reading technicians file:', error);
+      }
+      
+      return res.status(401).json({ 
+        error: 'Invalid technician credentials',
+        message: 'Email or password is incorrect for technician role' 
+      });
+    }
+    
+    // If role is 'management', check entries for management role
+    if (role === 'management') {
+      const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+      try {
+        const entriesData = await fs.readFile(entriesPath, 'utf8');
+        const entries = JSON.parse(entriesData.trim());
+        
+        const managementEntry = entries.find(e => e.email === email && e.password === password && e.role === 'management');
+        if (managementEntry) {
+          // Get companyId from plant_details.json
+          let companyId = sanitizedCompanyName;
+          try {
+            const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+            const plantData = await fs.readFile(plantDetailsPath, 'utf8');
+            const plant = JSON.parse(plantData);
+            companyId = plant.companyId;
+          } catch (error) {
+            console.error('Error reading plant details for companyId:', error);
+          }
+          
+          return res.json({
+            success: true,
+            user: {
+              id: managementEntry.id,
+              email: managementEntry.email,
+              role: 'management',
+              name: managementEntry.name,
+              companyName: sanitizedCompanyName,
+              companyId: companyId
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error reading entries file:', error);
+      }
+      
+      return res.status(401).json({ 
+        error: 'Invalid management credentials',
+        message: 'Email or password is incorrect for management role' 
+      });
+    }
+    
+    // No role specified, check both (default behavior)
     // Check admin credentials first
     const adminPath = path.join(companyPath, 'admin.json');
     try {
@@ -798,6 +1264,17 @@ app.post('/api/auth/login', async (req, res) => {
       const admin = JSON.parse(adminData);
       
       if (admin.email === email && admin.password === password) {
+        // Get companyId from plant_details.json
+        let companyId = sanitizedCompanyName;
+        try {
+          const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+          const plantData = await fs.readFile(plantDetailsPath, 'utf8');
+          const plant = JSON.parse(plantData);
+          companyId = plant.companyId;
+        } catch (error) {
+          console.error('Error reading plant details for companyId:', error);
+        }
+        
         return res.json({
           success: true,
           user: {
@@ -805,36 +1282,48 @@ app.post('/api/auth/login', async (req, res) => {
             email: admin.email,
             role: 'plantadmin',
             name: `${sanitizedCompanyName} Admin`,
-            companyName: sanitizedCompanyName
+            companyName: sanitizedCompanyName,
+            companyId: companyId
           }
         });
       }
     } catch (error) {
       console.error('Error reading admin file:', error);
-      // Admin file doesn't exist or is corrupted, continue to check users
     }
     
-    // Check user credentials
-    const usersPath = path.join(companyPath, 'users.json');
+    // Check technician credentials
+    const techniciansPath = path.join(companyPath, 'technicians.json');
     try {
-      const usersData = await fs.readFile(usersPath, 'utf8');
-      const users = JSON.parse(usersData.trim());
+      const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+      const technicians = JSON.parse(techniciansData.trim());
       
-      const user = users.find(u => u.email === email && u.password === password);
-      if (user) {
+      const technician = technicians.find(t => t.email === email && t.password === password);
+      if (technician) {
+        // Get companyId from plant_details.json
+        let companyId = sanitizedCompanyName;
+        try {
+          const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+          const plantData = await fs.readFile(plantDetailsPath, 'utf8');
+          const plant = JSON.parse(plantData);
+          companyId = plant.companyId;
+        } catch (error) {
+          console.error('Error reading plant details for companyId:', error);
+        }
+        
         return res.json({
           success: true,
           user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            name: user.name || user.email,
-            companyName: sanitizedCompanyName
+            id: technician.id,
+            email: technician.email,
+            role: 'technician',
+            name: technician.name || technician.email,
+            companyName: sanitizedCompanyName,
+            companyId: companyId
           }
         });
       }
     } catch (error) {
-      console.error('Error reading users file:', error);
+      console.error('Error reading technicians file:', error);
     }
     
     res.status(401).json({ 
@@ -913,10 +1402,77 @@ app.post('/api/verify-super-admin-password', async (req, res) => {
   }
 });
 
+// Auto-refresh panel data every 10 seconds for real-time simulation
+const autoRefreshPanelData = async () => {
+  try {
+    console.log('🔄 Auto-refreshing panel data for all companies...');
+    
+    const companies = await fs.readdir(COMPANIES_DIR);
+    
+    for (const companyId of companies) {
+      const companyPath = path.join(COMPANIES_DIR, companyId);
+      const stat = await fs.stat(companyPath);
+      
+      if (stat.isDirectory()) {
+        const plantDetailsPath = path.join(companyPath, 'plant_details.json');
+        
+        try {
+          const plantDetailsData = await fs.readFile(plantDetailsPath, 'utf8');
+          const plantDetails = JSON.parse(plantDetailsData);
+          
+          // Update panel data for all tables with PROPER repair simulation
+          let hasUpdates = false;
+          plantDetails.tables.forEach(table => {
+            if (table.panelsTop > 0) {
+              const topPanelData = generatePanelData(
+                table.panelsTop, 
+                plantDetails.voltagePerPanel, 
+                plantDetails.currentPerPanel,
+                table.topPanels // Pass existing data for repair simulation
+              );
+              table.topPanels = topPanelData;
+              hasUpdates = true;
+            }
+            
+            if (table.panelsBottom > 0) {
+              const bottomPanelData = generatePanelData(
+                table.panelsBottom, 
+                plantDetails.voltagePerPanel, 
+                plantDetails.currentPerPanel,
+                table.bottomPanels // Pass existing data for repair simulation
+              );
+              table.bottomPanels = bottomPanelData;
+              hasUpdates = true;
+            }
+          });
+          
+          if (hasUpdates) {
+            plantDetails.lastUpdated = new Date().toISOString();
+            
+            // Save updated data
+            await fs.writeFile(plantDetailsPath, JSON.stringify(plantDetails, null, 2));
+            console.log(`✅ Updated panel data for company: ${plantDetails.companyName}`);
+          }
+        } catch (error) {
+          console.error(`Error updating company ${companyId}:`, error);
+        }
+      }
+    }
+    
+    console.log('🔄 Auto-refresh completed');
+  } catch (error) {
+    console.error('Error in auto-refresh:', error);
+  }
+};
+
+// Start auto-refresh timer (every 10 seconds)
+setInterval(autoRefreshPanelData, 10000);
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`File system server running on port ${PORT}`);
   console.log(`Companies directory: ${COMPANIES_DIR}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`✅ PROPER series connection simulation active!`);
+  console.log(`🔄 Auto-refresh panel data every 10 seconds enabled!`);
 });

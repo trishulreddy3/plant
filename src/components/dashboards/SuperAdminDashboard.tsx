@@ -816,7 +816,9 @@ const SuperAdminDashboard = () => {
       <div className="glass-panel p-6 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2 text-primary">Super Admin Dashboard</h1>
+            <h1 className="text-4xl font-bold text-gray-800 tracking-wide uppercase mb-2 relative" style={{letterSpacing: '0.15em'}}>
+              <span className="bg-gradient-to-r from-blue-100 to-indigo-100 px-4 py-2 rounded-lg shadow-md">Super Admin Dashboard</span>
+            </h1>
             <p className="text-muted-foreground">Welcome, {user?.name} - Main System Administrator</p>
           </div>
           <div className="flex gap-2">

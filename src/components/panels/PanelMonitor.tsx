@@ -305,7 +305,7 @@ const PanelMonitor: React.FC<PanelMonitorProps> = ({ companyName }) => {
                           <SolarPanel
                             key={panel.id}
                             panel={panel}
-                            userRole={user?.role || 'user'}
+                            userRole={user?.role || 'technician'}
                             seriesNumber={index + 1}
                             canEdit={canEdit && editingTable === tableNumber}
                             onPanelClick={canEdit && editingTable === tableNumber ? () => handleDeletePanel(tableNumber, true, index) : undefined}
@@ -318,7 +318,7 @@ const PanelMonitor: React.FC<PanelMonitorProps> = ({ companyName }) => {
                           <SolarPanel
                             key={panel.id}
                             panel={panel}
-                            userRole={user?.role || 'user'}
+                            userRole={user?.role || 'technician'}
                             seriesNumber={tableConfig.topRowPanels + index + 1}
                             canEdit={canEdit && editingTable === tableNumber}
                             onPanelClick={canEdit && editingTable === tableNumber ? () => handleDeletePanel(tableNumber, false, index) : undefined}

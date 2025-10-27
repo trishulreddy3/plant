@@ -10,11 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import logo from '@/images/logo.png';
 import BackButton from '@/components/ui/BackButton';
 
-const AdminLogin = () => {
+const TechnicianLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    loginId: '',
+    email: '',
     password: '',
     companyName: '',
   });
@@ -23,18 +23,18 @@ const AdminLogin = () => {
 
   // Load stored credentials on component mount
   useEffect(() => {
-    console.log('🔐 AdminLogin: Loading stored credentials on mount...');
+    console.log('🔐 UserLogin: Loading stored credentials on mount...');
     const stored = getStoredCredentials();
     if (stored) {
-      console.log('🔐 AdminLogin: Found stored credentials, auto-filling form');
+      console.log('🔐 UserLogin: Found stored credentials, auto-filling form');
       setFormData({
-        loginId: stored.email,
+        email: stored.email,
         password: stored.password,
         companyName: '',
       });
       setRememberMe(true);
     } else {
-      console.log('🔐 AdminLogin: No stored credentials found');
+      console.log('🔐 UserLogin: No stored credentials found');
     }
   }, []);
 
@@ -42,24 +42,27 @@ const AdminLogin = () => {
     e.preventDefault();
     
     try {
-      const result = await login(formData.loginId, formData.password, formData.companyName);
+      const result = await login(formData.email, formData.password, formData.companyName);
       
       if (result.success && result.user) {
         // Store credentials if "Remember Me" is checked
-        console.log('🔐 AdminLogin: Storing credentials with Remember Me:', rememberMe);
-        storeCredentials(formData.loginId, formData.password, rememberMe);
+        console.log('🔐 UserLogin: Storing credentials with Remember Me:', rememberMe);
+        storeCredentials(formData.email, formData.password, rememberMe);
         
         toast({
           title: 'Login Successful',
-          description: `Welcome ${result.user.role === 'super_admin' ? 'Super Admin' : 'Admin'}!`,
+          description: `Welcome to ${result.user.companyName}!`,
         });
         
         // Navigate to appropriate dashboard based on user role
         setTimeout(() => {
           if (result.user.role === 'super_admin') {
             navigate('/super-admin-dashboard');
-          } else {
+          } else if (result.user.role === 'plant_admin') {
             navigate('/plant-admin-dashboard');
+          } else {
+            // Technicians go to welcome page first
+            navigate('/technician-welcome');
           }
         }, 100);
       } else {
@@ -158,14 +161,14 @@ const AdminLogin = () => {
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-lg shadow-blue-500/25" style={{display: 'none'}}>
+              <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-green-500 to-blue-600 rounded-3xl shadow-lg shadow-green-500/25" style={{display: 'none'}}>
                 <LogIn className="w-16 h-16 text-white" />
               </div>
             </div>
             <h1 className="text-4xl font-bold text-primary mb-3">
-              Admin Login
+              Technician Login
             </h1>
-            <p className="text-gray-600 text-base font-medium">Sign in to your admin account</p>
+            <p className="text-gray-600 text-base font-medium">Sign in to your technician account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -183,13 +186,13 @@ const AdminLogin = () => {
             </div>
 
             <div className="space-y-3">
-              <Label htmlFor="loginId" className="text-base font-medium text-gray-700">Login ID / Email</Label>
+              <Label htmlFor="email" className="text-base font-medium text-gray-700">Email</Label>
               <Input
-                id="loginId"
+                id="email"
                 type="email"
                 placeholder="Enter your email"
-                value={formData.loginId}
-                onChange={(e) => setFormData({ ...formData, loginId: e.target.value })}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
                 className="h-14 text-base input-modern"
               />
@@ -243,17 +246,17 @@ const AdminLogin = () => {
             </div>
           </form>
 
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials:</h3>
-            <div className="text-xs text-blue-700 space-y-1">
-              <div><strong>Super Admin:</strong></div>
+          <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
+            <h3 className="text-sm font-semibold text-green-800 mb-2">Demo Credentials:</h3>
+            <div className="text-xs text-green-700 space-y-1">
+              <div><strong>Technicians:</strong></div>
+              <div>Company: [company name] (auto-converted to lowercase)</div>
+              <div>Email: [User email from company]</div>
+              <div>Password: [User password from company]</div>
+              <div className="mt-2"><strong>Super Admin:</strong></div>
               <div>Company: microsyslogic (fixed)</div>
               <div>Email: super_admin@microsyslogic.com</div>
               <div>Password: super_admin_password</div>
-              <div className="mt-2"><strong>Plant Admin:</strong></div>
-              <div>Company: [Check backend companies]</div>
-              <div>Email: [Admin email from company]</div>
-              <div>Password: [Admin password from company]</div>
             </div>
           </div>
         </div>
@@ -263,4 +266,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default TechnicianLogin;

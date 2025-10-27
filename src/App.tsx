@@ -6,18 +6,19 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Welcome from "./pages/Welcome";
 import AdminLogin from "./pages/AdminLogin";
-import UserLogin from "./pages/UserLogin";
+import UnifiedLogin from "./pages/UnifiedLogin";
 import ForgotPassword from "./pages/ForgotPassword";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import PlantAdminDashboard from "./pages/PlantAdminDashboard";
 import PlantMonitor from "./pages/PlantMonitor";
-import UserDashboard from "./pages/UserDashboard";
-import UserWelcome from "./pages/UserWelcome";
+import TechnicianDashboard from "./pages/TechnicianDashboard";
+import TechnicianWelcome from "./pages/TechnicianWelcome";
 import AddCompany from "./pages/AddCompany";
 import Infrastructure from "./pages/Infrastructure";
 import AddTable from "./pages/AddTable";
-import ExistingUsers from "./pages/ExistingUsers";
-import AddUser from "./pages/AddUser";
+import ExistingStaffMembers from "./pages/ExistingStaffMembers";
+import AddStaff from "./pages/AddStaff";
+import EditStaff from "./pages/EditStaff";
 import CompanyMonitor from "./pages/CompanyMonitor";
 import PlantView from "./pages/PlantView";
 import AuthTest from "./pages/AuthTest";
@@ -68,7 +69,7 @@ const App = () => {
             <Routes>
             <Route path="/" element={<Welcome />} />
             <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/user-login" element={<UserLogin />} />
+            <Route path="/login" element={<UnifiedLogin />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             
             {/* Super Admin Routes */}
@@ -82,12 +83,13 @@ const App = () => {
             <Route path="/plant-monitor" element={<PlantMonitor />} />
             <Route path="/infrastructure" element={<Infrastructure />} />
             <Route path="/add-table" element={<AddTable />} />
-            <Route path="/existing-users" element={<ExistingUsers />} />
-            <Route path="/add-user" element={<AddUser />} />
+            <Route path="/existing-staff-members" element={<ExistingStaffMembers />} />
+            <Route path="/add-staff" element={<AddStaff />} />
+            <Route path="/edit-staff" element={<EditStaff />} />
             
-            {/* User Routes */}
-            <Route path="/user-welcome" element={<UserWelcome />} />
-            <Route path="/user-dashboard" element={<UserDashboard />} />
+            {/* Technician Routes */}
+            <Route path="/technician-welcome" element={<TechnicianWelcome />} />
+            <Route path="/technician-dashboard" element={<TechnicianDashboard />} />
             
             {/* Debug Routes */}
             <Route path="/auth-test" element={<AuthTest />} />

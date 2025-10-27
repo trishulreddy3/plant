@@ -35,7 +35,7 @@ export interface CompanyTable {
 export interface CompanyUser {
   id: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'technician';
   createdAt: string;
   createdBy: string; // Admin email who created this user
 }

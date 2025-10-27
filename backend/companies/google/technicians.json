@@ -1,0 +1,50 @@
+[
+  {
+    "id": "user-1761458958690",
+    "email": "trishul@gmail.com",
+    "password": "PB8sHemUglAA",
+    "role": "management",
+    "createdAt": "2025-10-26T06:09:18.690Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761461601002",
+    "email": "harsha@gmail.com",
+    "password": "oRJuulT76zY1",
+    "role": "technician",
+    "createdAt": "2025-10-26T06:53:21.002Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761472052223",
+    "email": "janani@gmail.com",
+    "password": "8r2aCHL2MARz",
+    "role": "technician",
+    "createdAt": "2025-10-26T09:47:32.223Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761472564014",
+    "email": "barnali@gmail.com",
+    "password": "bJCrIiHPpKUr",
+    "role": "technician",
+    "createdAt": "2025-10-26T09:56:04.014Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761472742138",
+    "email": "ee@ug",
+    "password": "bjpIjAdw1xnt",
+    "role": "technician",
+    "createdAt": "2025-10-26T09:59:02.138Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761477688285",
+    "email": "dd@d",
+    "password": "1cQeqt6IQe7w",
+    "role": "management",
+    "createdAt": "2025-10-26T11:21:28.285Z",
+    "createdBy": "rakesh@gmail.com"
+  }
+]

@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import BackButton from '@/components/ui/BackButton';
 
 const NotFound = () => {
   const location = useLocation();
@@ -10,6 +11,9 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="text-center">
         <h1 className="mb-4 text-4xl font-bold">404</h1>
         <p className="mb-4 text-xl text-gray-600">Oops! Page not found</p>

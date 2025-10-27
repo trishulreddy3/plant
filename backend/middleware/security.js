@@ -95,8 +95,8 @@ const validateUserCreation = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('role')
-    .isIn(['admin', 'user'])
-    .withMessage('Role must be either admin or user'),
+    .isIn(['admin', 'technician'])
+    .withMessage('Role must be either admin or technician'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

@@ -15,6 +15,7 @@ import {
   CookiePreferences,
   CookieInfo
 } from '@/utils/cookieManager';
+import BackButton from '@/components/ui/BackButton';
 
 const CookieSettings: React.FC = () => {
   const [preferences, setPreferences] = useState<CookiePreferences>(getCookiePreferences());
@@ -74,7 +75,10 @@ const CookieSettings: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl relative">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center">

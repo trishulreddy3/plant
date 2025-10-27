@@ -10,6 +10,7 @@ import { addCompany, addPlantAdmin } from '@/lib/auth';
 import { createCompanyFolder } from '@/lib/realFileSystem';
 import { addActivityLog } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
+import BackButton from '@/components/ui/BackButton';
 
 const AddCompany = () => {
   const navigate = useNavigate();
@@ -92,7 +93,60 @@ const AddCompany = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+    <>
+      <style>{`
+        .custom-button {
+          cursor: pointer;
+          position: relative;
+          padding: 8px 20px;
+          font-size: 16px;
+          color: rgb(193, 163, 98);
+          border: 2px solid rgb(193, 163, 98);
+          border-radius: 28px;
+          background-color: transparent;
+          font-weight: 600;
+          transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+          overflow: hidden;
+          width: 80%;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        .custom-button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          scale: 0;
+          z-index: -1;
+          background-color: rgb(193, 163, 98);
+          transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
+        }
+
+        .custom-button:hover::before {
+          scale: 1;
+        }
+
+        .custom-button:hover {
+          color: #212121;
+          scale: 1.1;
+          box-shadow: 0 0px 20px rgba(193, 163, 98, 0.4);
+        }
+
+        .custom-button:active {
+          scale: 1;
+        }
+      `}</style>
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="container max-w-2xl mx-auto py-8">
         <Button
           variant="ghost"
@@ -257,15 +311,18 @@ const AddCompany = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-12 gradient-primary">
-                <Save className="mr-2 h-4 w-4" />
-                Create Company & Admin
-              </Button>
+              <div className="flex justify-center">
+                <button type="submit" className="custom-button">
+                  <Save className="h-6 w-6" />
+                  Create Company & Admin
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

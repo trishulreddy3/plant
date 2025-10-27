@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff } from 'lucide-react';
+import BackButton from '@/components/ui/BackButton';
 
 const AuthTest = () => {
   const [email, setEmail] = useState('super_admin@microsyslogic.com');
@@ -50,7 +51,60 @@ const AuthTest = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+    <>
+      <style>{`
+        .custom-button {
+          cursor: pointer;
+          position: relative;
+          padding: 8px 20px;
+          font-size: 16px;
+          color: rgb(193, 163, 98);
+          border: 2px solid rgb(193, 163, 98);
+          border-radius: 28px;
+          background-color: transparent;
+          font-weight: 600;
+          transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
+          overflow: hidden;
+          width: 80%;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        .custom-button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          scale: 0;
+          z-index: -1;
+          background-color: rgb(193, 163, 98);
+          transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
+        }
+
+        .custom-button:hover::before {
+          scale: 1;
+        }
+
+        .custom-button:hover {
+          color: #212121;
+          scale: 1.1;
+          box-shadow: 0 0px 20px rgba(193, 163, 98, 0.4);
+        }
+
+        .custom-button:active {
+          scale: 1;
+        }
+      `}</style>
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="container max-w-2xl mx-auto py-8">
         <Card className="glass-card">
           <CardHeader>
@@ -99,16 +153,16 @@ const AuthTest = () => {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={testBackendConnection} disabled={loading}>
+            <div className="flex gap-2 justify-center">
+              <button onClick={testBackendConnection} disabled={loading} className="custom-button">
                 Test Backend
-              </Button>
-              <Button onClick={testCompanies} disabled={loading}>
+              </button>
+              <button onClick={testCompanies} disabled={loading} className="custom-button">
                 Test Companies
-              </Button>
-              <Button onClick={testLogin} disabled={loading}>
+              </button>
+              <button onClick={testLogin} disabled={loading} className="custom-button">
                 Test Login
-              </Button>
+              </button>
             </div>
 
             {result && (
@@ -130,6 +184,7 @@ const AuthTest = () => {
         </Card>
       </div>
     </div>
+    </>
   );
 };
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     position: 'top' | 'bottom';
     panelCount: number;
   }>({ tableId: '', position: 'top', panelCount: 1 });
+  const [faultPanelType, setFaultPanelType] = useState<'all' | 'fault' | 'repairing'>('all');
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -523,8 +525,15 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 <p className="text-sm text-muted-foreground">
                   {userRole === 'super_admin' ? 'Super Admin View' : 
                    userRole === 'plant_admin' ? 'Plant Admin Dashboard' : 
+                   userRole === 'management' ? 'Management Dashboard' :
+                   userRole === 'technician' ? 'Technician Dashboard' :
                    'User Dashboard'} - Real-time panel status and performance
                 </p>
+                {userRole && userRole !== 'super_admin' && userRole !== 'plant_admin' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Role: <span className="font-semibold capitalize">{userRole}</span>
+                  </p>
+                )}
               </div>
             </div>
             <Button onClick={handleLogout} variant="destructive">
@@ -810,37 +819,78 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
               </CardContent>
             </Card>
 
-            {/* Fault Panels List - EXACT SAME AS ViewTables */}
-            {culpritPanels.length > 0 && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                    Fault Panels
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {culpritPanels.map((panel) => (
-                      <div key={panel.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                        <div>
-                          <p className="text-sm font-semibold">{panel.id}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {panel.tableNumber} - {panel.position} - {panel.panelNumber}
-                          </p>
-                        </div>
-                        <Badge 
-                          variant={panel.status === 'Fault' ? 'destructive' : 'secondary'}
-                          className={panel.status === 'Repairing' ? 'bg-yellow-500 text-yellow-900' : ''}
+            {/* Fault Panels with Dropdown */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  Panel Status
+                </CardTitle>
+                <div className="mt-2">
+                  <Select value={faultPanelType} onValueChange={(value: 'all' | 'fault' | 'repairing') => setFaultPanelType(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select panel type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Faulty Panels ({faultPanels.length + repairingPanels.length})</SelectItem>
+                      <SelectItem value="fault">Fault Panels ({faultPanels.length})</SelectItem>
+                      <SelectItem value="repairing">Repairing Panels ({repairingPanels.length})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  let panelsToShow = [];
+                  let panelType = '';
+                  
+                  if (faultPanelType === 'all') {
+                    panelsToShow = [...faultPanels, ...repairingPanels];
+                    panelType = 'All Faulty';
+                  } else if (faultPanelType === 'fault') {
+                    panelsToShow = faultPanels;
+                    panelType = 'Fault';
+                  } else {
+                    panelsToShow = repairingPanels;
+                    panelType = 'Repairing';
+                  }
+
+                  return panelsToShow.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {panelsToShow.map((panel) => (
+                        <div
+                          key={panel.id}
+                          className={`flex items-center justify-between p-2 rounded-lg border ${
+                            panel.status === 'Fault' 
+                              ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+                              : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+                          }`}
                         >
-                          {panel.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                          <div>
+                            <p className="text-sm font-semibold">{panel.id}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {panel.tableNumber} - {panel.position} - {panel.panelNumber}
+                            </p>
+                          </div>
+                          <Badge 
+                            variant={panel.status === 'Fault' ? 'destructive' : 'secondary'} 
+                            className={`text-xs ${
+                              panel.status === 'Repairing' ? 'bg-yellow-500 text-yellow-900' : ''
+                            }`}
+                          >
+                            {panel.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No {panelType.toLowerCase()} panels detected
+                    </p>
+                  );
+                })()}
+              </CardContent>
+            </Card>
 
             {/* Read-Only Notice (For Users and Super Admin) */}
             {(userRole === 'user' || userRole === 'super_admin') && (

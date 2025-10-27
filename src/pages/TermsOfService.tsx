@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, FileText, Scale, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Footer from '@/components/Footer';
+import BackButton from '@/components/ui/BackButton';
 
 const TermsOfService: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">

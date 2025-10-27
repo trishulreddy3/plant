@@ -1,0 +1,26 @@
+[
+  {
+    "id": "user-1761458958690",
+    "email": "trishul@gmail.com",
+    "password": "PB8sHemUglAA",
+    "role": "management",
+    "createdAt": "2025-10-26T06:09:18.690Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761461695097",
+    "email": "barnali@gmail.com",
+    "password": "gwlQp8FlMKOw",
+    "role": "management",
+    "createdAt": "2025-10-26T06:54:55.097Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1761477688285",
+    "email": "dd@d",
+    "password": "1cQeqt6IQe7w",
+    "role": "management",
+    "createdAt": "2025-10-26T11:21:28.285Z",
+    "createdBy": "rakesh@gmail.com"
+  }
+]

@@ -10,6 +10,7 @@ import { addTable } from '@/lib/data';
 import { addTableToPlant, getPlantDetails, PlantDetails } from '@/lib/realFileSystem';
 import { validateUserCompany } from '@/lib/companySync';
 import { useToast } from '@/hooks/use-toast';
+import BackButton from '@/components/ui/BackButton';
 
 const AddTable = () => {
   const navigate = useNavigate();
@@ -173,6 +174,9 @@ const AddTable = () => {
 
   return (
     <>
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <style>{`
         .not-allowed-button {
           position: relative;

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { LogOut, Settings, Users, Plus, Shield, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import InfrastructureView from '@/components/plant/InfrastructureView';
-import UserManagement from '@/components/plant/UserManagement';
+import TechnicianManagement from '@/components/plant/TechnicianManagement';
 
 type ViewType = 'main' | 'infrastructure' | 'users' | 'addUser';
 
@@ -25,7 +25,7 @@ const PlantAdminDashboard = () => {
 
   if (currentView === 'users' || currentView === 'addUser') {
     return (
-      <UserManagement
+      <TechnicianManagement
         onBack={() => setCurrentView('main')}
         initialView={currentView === 'addUser' ? 'add' : 'list'}
       />
@@ -75,9 +75,9 @@ const PlantAdminDashboard = () => {
             <div className="w-20 h-20 rounded-full bg-accent/20 border-2 border-accent flex items-center justify-center mb-4">
               <Users className="w-10 h-10 text-accent" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">Existing Users</h3>
+            <h3 className="text-2xl font-bold mb-2">Existing Staff Members</h3>
             <p className="text-muted-foreground">
-              View and manage user accounts and permissions
+              View and manage staff member accounts and permissions
             </p>
           </div>
         </Card>
@@ -90,9 +90,9 @@ const PlantAdminDashboard = () => {
             <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center mb-4">
               <Plus className="w-10 h-10 text-green-500" />
             </div>
-            <h3 className="text-2xl font-bold mb-2">Add New User</h3>
+            <h3 className="text-2xl font-bold mb-2">Add Staff Member</h3>
             <p className="text-muted-foreground">
-              Create new user accounts with auto-generated passwords
+              Create new staff member accounts with auto-generated passwords
             </p>
           </div>
         </Card>

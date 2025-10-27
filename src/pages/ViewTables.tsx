@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Activity, AlertCircle, CheckCircle, AlertTriangle, Edit, Trash2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
@@ -10,6 +11,7 @@ import { getTablesByCompany, getPanelsByCompany, updatePanelData, Panel, migrate
 import { getCompanies } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { getAllCompanies, getPlantDetails, deletePanel, refreshPanelData, PlantDetails } from '@/lib/realFileSystem'; // Import from realFileSystem
+import BackButton from '@/components/ui/BackButton';
 
 const ViewTables = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ const ViewTables = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tableToDelete, setTableToDelete] = useState<any>(null);
   const [showDeleteTableDialog, setShowDeleteTableDialog] = useState(false);
+  const [faultPanelType, setFaultPanelType] = useState<'all' | 'fault' | 'repairing'>('all');
 
   useEffect(() => {
     if (!user || user.role !== 'plant_admin') {
@@ -56,7 +59,12 @@ const ViewTables = () => {
   }, [user, navigate]);
 
   const loadData = async () => {
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      console.log('🔍 Debug - No user or companyId');
+      return;
+    }
+    
+    console.log('🔍 Debug - Loading data for company:', user.companyId);
     
     try {
       // Try to load from backend first
@@ -64,9 +72,13 @@ const ViewTables = () => {
       const backendCompanies = await getAllCompanies();
       const selectedCompany = backendCompanies.find(c => c.id === user.companyId);
       
+      console.log('🔍 Debug - Selected company:', selectedCompany?.name);
+      
       if (selectedCompany) {
         // Load plant details from backend
         const plantDetails = await getPlantDetails(user.companyId);
+        console.log('🔍 Debug - Plant details loaded:', plantDetails?.tables?.length, 'tables');
+        
         if (plantDetails) {
           setPlantDetails(plantDetails); // Store plant details for use in table
           setTables(plantDetails.tables || []);
@@ -407,12 +419,18 @@ const ViewTables = () => {
     setTableToDelete(null);
   }; 
 
-  // Function to calculate panel health percentage
-  const getPanelHealthPercentage = (panel: Panel): number => {
-    const maxPower = panel.maxVoltage * panel.maxCurrent; // Maximum possible power
-    const currentPower = panel.powerGenerated; // Current power output
-    const healthPercentage = (currentPower / maxPower) * 100;
-    return Math.round(healthPercentage);
+  // Function to get panel health percentage from backend data
+  const getPanelHealthPercentage = (table: any, position: 'top' | 'bottom', panelIndex: number): number => {
+    if (!table || !table[position === 'top' ? 'topPanels' : 'bottomPanels']) {
+      return 0;
+    }
+    
+    const panelData = table[position === 'top' ? 'topPanels' : 'bottomPanels'];
+    if (!panelData.health || !panelData.health[panelIndex]) {
+      return 0;
+    }
+    
+    return Math.round(panelData.health[panelIndex]);
   };
 
   // Function to identify main culprit panels in series connection
@@ -427,71 +445,60 @@ const ViewTables = () => {
     }> = [];
 
     tables.forEach(table => {
-      const tablePanels = panels.filter(p => p.tableId === table.id);
-      const topPanels = tablePanels.filter(p => p.position === 'top').sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        const aNum = parseInt(a.name.substring(1)) || 0;
-        const bNum = parseInt(b.name.substring(1)) || 0;
-        return aNum - bNum;
-      });
-      const bottomPanels = tablePanels.filter(p => p.position === 'bottom').sort((a, b) => {
-        if (!a.name || !b.name) return 0;
-        const aNum = parseInt(a.name.substring(1)) || 0;
-        const bNum = parseInt(b.name.substring(1)) || 0;
-        return aNum - bNum;
-      });
-
       // Extract table number from serial number (e.g., "TBL-0001" -> "1")
       const tableNumber = table.serialNumber.split('-')[1] ? parseInt(table.serialNumber.split('-')[1]) : 1;
 
-      // Check top panels for actual faults ONLY (not series effect panels)
-      topPanels.forEach((panel, index) => {
-        // Only show panels that are actually faulty (repairing or fault), not just affected by series connection
-        if (panel.state === 'repairing' || panel.state === 'fault') {
-          // Verify this panel has low health (actually needs repair)
-          const healthPercentage = getPanelHealthPercentage(panel);
-          if (healthPercentage < 80) {
+      // Check top panels using backend data with actualFaultStatus
+      if (table.topPanels && table.topPanels.actualFaultStatus) {
+        table.topPanels.actualFaultStatus.forEach((isActuallyFaulty, index) => {
+          if (isActuallyFaulty) {
+            const panelState = table.topPanels.states[index] || 'good';
             culpritPanels.push({
-              id: panel.id,
+              id: `table-${table.id}-top-${index}`,
               tableId: table.id,
               tableNumber: tableNumber.toString(),
               position: 'top',
-              panelNumber: panel.name,
-              status: panel.state // Use state from backend simulation
+              panelNumber: `P${index + 1}`,
+              status: panelState
             });
           }
-        }
-      });
+        });
+      }
 
-      // Check bottom panels for actual faults ONLY (not series effect panels)
-      bottomPanels.forEach((panel, index) => {
-        // Only show panels that are actually faulty (repairing or fault), not just affected by series connection
-        if (panel.state === 'repairing' || panel.state === 'fault') {
-          // Verify this panel has low health (actually needs repair)
-          const healthPercentage = getPanelHealthPercentage(panel);
-          if (healthPercentage < 80) {
+      // Check bottom panels using backend data with actualFaultStatus
+      if (table.bottomPanels && table.bottomPanels.actualFaultStatus) {
+        table.bottomPanels.actualFaultStatus.forEach((isActuallyFaulty, index) => {
+          if (isActuallyFaulty) {
+            const panelState = table.bottomPanels.states[index] || 'good';
             culpritPanels.push({
-              id: panel.id,
+              id: `table-${table.id}-bottom-${index}`,
               tableId: table.id,
               tableNumber: tableNumber.toString(),
               position: 'bottom',
-              panelNumber: panel.name,
-              status: panel.state // Use state from backend simulation
+              panelNumber: `P${index + 1}`,
+              status: panelState
             });
           }
-        }
-      });
+        });
+      }
     });
 
     return culpritPanels;
   };
 
   const mainCulpritPanels = getMainCulpritPanels();
-  const repairingPanels = mainCulpritPanels.filter(p => p.status === 'average');
+  const repairingPanels = mainCulpritPanels.filter(p => p.status === 'repairing');
   const faultPanels = mainCulpritPanels.filter(p => p.status === 'fault');
 
+  // Debug logging
+  console.log('🔍 Debug - Tables:', tables.length);
+  console.log('🔍 Debug - Main culprit panels:', mainCulpritPanels.length);
+  console.log('🔍 Debug - Fault panels:', faultPanels.length);
+  console.log('🔍 Debug - Repairing panels:', repairingPanels.length);
+  console.log('🔍 Debug - Fault panel type:', faultPanelType);
+
   // Function to get panel image based on panel state from backend simulation
-  const getPanelImage = (panel: Panel): string => {
+  const getPanelImage = (panel: Panel, table?: any, position?: 'top' | 'bottom', panelIndex?: number): string => {
     // Check if panel has state information from backend simulation
     if (panel.state) {
       switch (panel.state) {
@@ -506,16 +513,21 @@ const ViewTables = () => {
       }
     }
     
-    // Fallback to health percentage for backward compatibility
-    const healthPercentage = getPanelHealthPercentage(panel);
-    
-    if (healthPercentage >= 80) {
-      return '/images/panels/image1.png'; // Blue - Good condition
-    } else if (healthPercentage >= 20) {
-      return '/images/panels/image2.png'; // Orange - Repairing condition
-    } else {
-      return '/images/panels/image3.png'; // Red - Fault condition
+    // Fallback to health percentage using backend data if available
+    if (table && position !== undefined && panelIndex !== undefined) {
+      const healthPercentage = getPanelHealthPercentage(table, position, panelIndex);
+      
+      if (healthPercentage >= 50) {
+        return '/images/panels/image1.png'; // Blue - Good condition
+      } else if (healthPercentage >= 20) {
+        return '/images/panels/image2.png'; // Orange - Repairing condition
+      } else {
+        return '/images/panels/image3.png'; // Red - Fault condition
+      }
     }
+    
+    // Final fallback
+    return '/images/panels/image1.png'; // Default to good
   };
 
   const stats = {
@@ -529,6 +541,9 @@ const ViewTables = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <header className="glass-header sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <Button
@@ -780,8 +795,8 @@ const ViewTables = () => {
                         }}
                       >
                         <img
-                          src={getPanelImage(panel)}
-                          alt={`Panel ${panel.name} - Health ${getPanelHealthPercentage(panel)}%`}
+                          src={getPanelImage(panel, table, 'top', topPanels.indexOf(panel))}
+                          alt={`Panel ${panel.name} - Health ${getPanelHealthPercentage(table, 'top', topPanels.indexOf(panel))}%`}
                           className="w-full h-full object-cover"
                           style={{ borderRadius: '4px' }}
                         />
@@ -826,8 +841,8 @@ const ViewTables = () => {
                         }}
                       >
                         <img
-                          src={getPanelImage(panel)}
-                          alt={`Panel ${panel.name} - Health ${getPanelHealthPercentage(panel)}%`}
+                          src={getPanelImage(panel, table, 'bottom', bottomPanels.indexOf(panel))}
+                          alt={`Panel ${panel.name} - Health ${getPanelHealthPercentage(table, 'bottom', bottomPanels.indexOf(panel))}%`}
                           className="w-full h-full object-cover"
                           style={{ borderRadius: '4px' }}
                         />
@@ -858,69 +873,83 @@ const ViewTables = () => {
 
           {/* Fault Details Sidebar */}
           <div className="w-full lg:w-80 space-y-4">
-            {/* Fault Panels */}
+            {/* Fault Panels with Dropdown */}
             <Card className="glass-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <AlertCircle className="h-5 w-5 text-red-500" />
-                  Fault Panels
+                  Panel Status
                 </CardTitle>
+                <div className="mt-2">
+                  <Select value={faultPanelType} onValueChange={(value: 'all' | 'fault' | 'repairing') => setFaultPanelType(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select panel type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Faulty Panels ({faultPanels.length + repairingPanels.length})</SelectItem>
+                      <SelectItem value="fault">Fault Panels ({faultPanels.length})</SelectItem>
+                      <SelectItem value="repairing">Repairing Panels ({repairingPanels.length})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Debug: All={faultPanels.length + repairingPanels.length}, Fault={faultPanels.length}, Repairing={repairingPanels.length}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {faultPanels.length > 0 ? (
-                  <div className="space-y-2">
-                    {faultPanels.map((panel) => (
-                      <div
-                        key={panel.id}
-                        className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800"
-                      >
-                        <span className="font-mono text-sm font-semibold">
-                          T.{panel.tableNumber}.{panel.position.toUpperCase()}.{panel.panelNumber}
-                        </span>
-                        <Badge variant="destructive" className="text-xs">
-                          Fault
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No fault panels detected
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                {(() => {
+                  let panelsToShow = [];
+                  let panelType = '';
+                  
+                  if (faultPanelType === 'all') {
+                    panelsToShow = [...faultPanels, ...repairingPanels];
+                    panelType = 'All Faulty';
+                  } else if (faultPanelType === 'fault') {
+                    panelsToShow = faultPanels;
+                    panelType = 'Fault';
+                  } else {
+                    panelsToShow = repairingPanels;
+                    panelType = 'Repairing';
+                  }
 
-            {/* Repairing Panels */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                  Panels Under Repair
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {repairingPanels.length > 0 ? (
-                  <div className="space-y-2">
-                    {repairingPanels.map((panel) => (
-                      <div
-                        key={panel.id}
-                        className="flex items-center justify-between p-2 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800"
-                      >
-                        <span className="font-mono text-sm font-semibold">
-                          T.{panel.tableNumber}.{panel.position.toUpperCase()}.{panel.panelNumber}
-                        </span>
-                        <Badge variant="secondary" className="text-xs bg-yellow-500 text-yellow-900">
-                          Repairing
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No panels under repair
-                  </p>
-                )}
+                  console.log('🔍 Debug - Panels to show:', panelsToShow.length, 'Type:', panelType);
+
+                  return panelsToShow.length > 0 ? (
+                    <div className="space-y-2">
+                      {panelsToShow.map((panel) => (
+                        <div
+                          key={panel.id}
+                          className={`flex items-center justify-between p-2 rounded-lg border ${
+                            panel.status === 'fault' 
+                              ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+                              : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+                          }`}
+                        >
+                          <span className="font-mono text-sm font-semibold">
+                            T.{panel.tableNumber}.{panel.position.toUpperCase()}.{panel.panelNumber}
+                          </span>
+                          <Badge 
+                            variant={panel.status === 'fault' ? 'destructive' : 'secondary'} 
+                            className={`text-xs ${
+                              panel.status === 'repairing' ? 'bg-yellow-500 text-yellow-900' : ''
+                            }`}
+                          >
+                            {panel.status === 'fault' ? 'Fault' : 'Repairing'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">
+                        No {panelType.toLowerCase()} panels detected
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Debug: Tables={tables.length}, MainCulprit={mainCulpritPanels.length}
+                      </p>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 

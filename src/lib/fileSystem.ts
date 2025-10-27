@@ -19,7 +19,7 @@ export interface UserCredentials {
   id: string;
   email: string;
   password: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'technician';
   createdAt: string;
   createdBy: string;
 }

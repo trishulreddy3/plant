@@ -3,9 +3,10 @@ import { useEffect } from 'react';
 import { useNavigation } from '@/hooks/useNavigation';
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard';
 import PlantAdminDashboard from '@/components/dashboards/PlantAdminDashboard';
-import UserDashboard from '@/components/dashboards/UserDashboard';
+import TechnicianDashboard from '@/components/dashboards/TechnicianDashboard';
 import { Card } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import BackButton from '@/components/ui/BackButton';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -24,8 +25,8 @@ const Dashboard = () => {
       console.error('Dashboard: Plant admin without company association');
     }
 
-    if (user.role === 'user' && !user.companyName) {
-      console.error('Dashboard: User without company association');
+    if (user.role === 'technician' && !user.companyName) {
+      console.error('Dashboard: Technician without company association');
     }
 
     console.log(`Dashboard: Loading ${user.role} dashboard for user:`, user.email);
@@ -34,7 +35,10 @@ const Dashboard = () => {
   // Show loading state while user is being validated
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative">
+        <div className="absolute top-4 left-4 z-10">
+          <BackButton />
+        </div>
         <Card className="p-8 text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading dashboard...</p>
@@ -49,8 +53,8 @@ const Dashboard = () => {
       return <SuperAdminDashboard />;
     case 'plantadmin':
       return <PlantAdminDashboard />;
-    case 'user':
-      return <UserDashboard />;
+    case 'technician':
+      return <TechnicianDashboard />;
     default:
       console.error(`Dashboard: Unknown user role: ${user.role}`);
       return (

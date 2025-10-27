@@ -1,7 +1,7 @@
 // Client-side authentication utilities
 // ⚠️ WARNING: This is for demo purposes only. Use proper backend auth in production.
 
-export type UserRole = 'super_admin' | 'plant_admin' | 'user';
+export type UserRole = 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'admin';
 
 export interface User {
   id: string;
@@ -92,7 +92,7 @@ export const setCurrentUser = (user: User | null) => {
 };
 
 // Check backend credentials
-const checkBackendCredentials = async (email: string, password: string, companyName?: string): Promise<{ success: boolean; user?: User; error?: string }> => {
+const checkBackendCredentials = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     // Import the backend functions
     const { getAllCompanies, getAdminCredentials, getUsers } = await import('./realFileSystem');
@@ -115,33 +115,83 @@ const checkBackendCredentials = async (email: string, password: string, companyN
     // Check each company for matching credentials
     for (const company of companiesToCheck) {
       try {
-        // Check admin credentials
-        const adminCreds = await getAdminCredentials(company.id);
-        if (adminCreds && adminCreds.email === email && adminCreds.password === password) {
-          const user: User = {
-            id: `admin-${company.id}`,
-            email: adminCreds.email,
-            role: 'plant_admin',
-            companyName: company.name,
-            companyId: company.id,
-            createdAt: adminCreds.createdAt,
-          };
-          return { success: true, user };
-        }
-        
-        // Check user credentials
-        const users = await getUsers(company.id);
-        const foundUser = users.find(u => u.email === email && u.password === password);
-        if (foundUser) {
-          const user: User = {
-            id: foundUser.id,
-            email: foundUser.email,
-            role: 'user',
-            companyName: company.name,
-            companyId: company.id,
-            createdAt: foundUser.createdAt,
-          };
-          return { success: true, user };
+        // If role is selected, check only that role
+        if (selectedRole === 'admin') {
+          // Check admin credentials
+          const adminCreds = await getAdminCredentials(company.id);
+          if (adminCreds && adminCreds.email === email && adminCreds.password === password) {
+            const user: User = {
+              id: `admin-${company.id}`,
+              email: adminCreds.email,
+              role: 'plant_admin',
+              companyName: company.name,
+              companyId: company.id,
+              createdAt: adminCreds.createdAt,
+            };
+            return { success: true, user };
+          }
+        } else if (selectedRole === 'technician') {
+          // Check technician credentials
+          const technicians = await getUsers(company.id);
+          const foundUser = technicians.find(t => t.email === email && t.password === password);
+          if (foundUser) {
+            const user: User = {
+              id: foundUser.id,
+              email: foundUser.email,
+              role: 'technician',
+              companyName: company.name,
+              companyId: company.id,
+              createdAt: foundUser.createdAt,
+            };
+            return { success: true, user };
+          }
+        } else if (selectedRole === 'management') {
+          // Check management credentials
+          const technicians = await getUsers(company.id);
+          const foundUser = technicians.find(t => t.email === email && t.password === password && t.role === 'management');
+          if (foundUser) {
+            const user: User = {
+              id: foundUser.id,
+              email: foundUser.email,
+              role: 'management',
+              companyName: company.name,
+              companyId: company.id,
+              createdAt: foundUser.createdAt,
+            };
+            return { success: true, user };
+          }
+        } else {
+          // No role selected, check both
+          // Check admin credentials first
+          const adminCreds = await getAdminCredentials(company.id);
+          if (adminCreds && adminCreds.email === email && adminCreds.password === password) {
+            const user: User = {
+              id: `admin-${company.id}`,
+              email: adminCreds.email,
+              role: 'plant_admin',
+              companyName: company.name,
+              companyId: company.id,
+              createdAt: adminCreds.createdAt,
+            };
+            return { success: true, user };
+          }
+          
+          // Check technician/management credentials
+          const technicians = await getUsers(company.id);
+          const foundUser = technicians.find(t => t.email === email && t.password === password);
+          if (foundUser) {
+            // Use the actual role from the found user (technician or management)
+            const userRole = foundUser.role === 'management' ? 'management' : 'technician';
+            const user: User = {
+              id: foundUser.id,
+              email: foundUser.email,
+              role: userRole,
+              companyName: company.name,
+              companyId: company.id,
+              createdAt: foundUser.createdAt,
+            };
+            return { success: true, user };
+          }
         }
       } catch (error) {
         // Continue checking other companies if one fails
@@ -149,14 +199,14 @@ const checkBackendCredentials = async (email: string, password: string, companyN
       }
     }
     
-    return { success: false, error: 'Invalid credentials' };
+    return { success: false, error: selectedRole ? `Invalid ${selectedRole} credentials` : 'Invalid credentials' };
   } catch (error) {
     console.error('Backend credential check failed:', error);
     return { success: false, error: 'Backend authentication failed' };
   }
 };
 
-export const login = async (email: string, password: string, companyName?: string): Promise<{ success: boolean; user?: User; error?: string }> => {
+export const login = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     // Check Super Admin (hardcoded)
     if (email === SUPER_ADMIN.email && password === SUPER_ADMIN.password) {
@@ -177,14 +227,14 @@ export const login = async (email: string, password: string, companyName?: strin
     }
 
     // Check backend credentials first
-    const backendResult = await checkBackendCredentials(email, password, companyName);
+    const backendResult = await checkBackendCredentials(email, password, companyName, selectedRole);
     if (backendResult.success) {
       setCurrentUser(backendResult.user);
       return { success: true, user: backendResult.user };
     }
 
     // Skip localStorage fallback - only use backend authentication
-    return { success: false, error: 'Invalid credentials' };
+    return { success: false, error: selectedRole ? `Invalid ${selectedRole} credentials` : 'Invalid credentials' };
   } catch (error) {
     console.error('❌ Login error:', error);
     return { success: false, error: 'Login failed. Please try again.' };

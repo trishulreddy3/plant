@@ -221,8 +221,15 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                 <p className="text-sm text-muted-foreground">
                   {userRole === 'super_admin' ? 'Super Admin View' : 
                    userRole === 'plant_admin' ? 'Plant Admin Dashboard' : 
+                   userRole === 'management' ? 'Management Dashboard' :
+                   userRole === 'technician' ? 'Technician Dashboard' :
                    'User Dashboard'} - {company.name}
                 </p>
+                {userRole && userRole !== 'super_admin' && userRole !== 'plant_admin' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Role: <span className="font-semibold capitalize">{userRole}</span>
+                  </p>
+                )}
               </div>
             </div>
             <Button onClick={handleLogout} variant="destructive">
@@ -469,7 +476,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                     Infrastructure
                   </Button>
                   <Button 
-                    onClick={() => navigate('/existing-users')} 
+                    onClick={() => navigate('/existing-staff-members')} 
                     className="w-full"
                     variant="outline"
                   >

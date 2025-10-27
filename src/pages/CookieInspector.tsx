@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Cookie, RefreshCw } from 'lucide-react';
 import { getAllCookies, getCookiePreferences, COOKIE_INFO } from '@/utils/cookieManager';
+import BackButton from '@/components/ui/BackButton';
 
 const CookieInspector: React.FC = () => {
   const [cookies, setCookies] = useState<Record<string, string>>({});
@@ -38,7 +39,10 @@ const CookieInspector: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl relative">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center">

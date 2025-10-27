@@ -1,0 +1,92 @@
+<Card 
+  key={company.id} 
+  className="glass-card hover:shadow-xl transition-all cursor-pointer group"
+  onClick={() => navigate(`/company-monitor/${company.id}`)}
+>
+  <CardHeader>
+    <CardTitle className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+        {company.name}
+      </div>
+      <Badge variant="outline">{tableCount} tables</Badge>
+    </CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <div className="grid grid-cols-2 gap-2 text-sm">
+      <div className="space-y-1">
+        <p className="text-muted-foreground">Plant Power</p>
+        <p className="font-semibold flex items-center gap-1">
+          <Zap className="h-3 w-3 text-primary" />
+          {company.plantPowerKW} kW
+        </p>
+      </div>
+      <div className="space-y-1">
+        <p className="text-muted-foreground">Panel Specs</p>
+        <p className="font-semibold">{company.panelVoltage}V / {company.panelCurrent}A</p>
+      </div>
+    </div>
+    <div className="flex gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex-1"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(`/company-monitor/${company.id}`);
+        }}
+      >
+        <Eye className="mr-2 h-3 w-3" />
+        Monitor Activity
+      </Button>
+    </div>
+  </CardContent>
+</Card>
+
+
+CSS Classes Used:
+Main Card Classes:
+glass-card - Custom glassmorphism effect
+hover:shadow-xl - Enhanced shadow on hover
+transition-all - Smooth transitions
+cursor-pointer - Pointer cursor
+group - For group hover effects
+Card Structure:
+Card - Shadcn/ui Card component
+CardHeader - Card header section
+CardTitle - Card title styling
+CardContent - Card content section
+Layout Classes:
+flex items-center justify-between - Header layout
+flex items-center gap-2 - Icon and text alignment
+grid grid-cols-2 gap-2 - Two-column grid for data
+space-y-1 - Vertical spacing
+space-y-3 - Content spacing
+Interactive Elements:
+group-hover:scale-110 - Icon scale on card hover
+transition-transform - Smooth transform transitions
+flex-1 - Button takes full width
+
+
+Glass Card CSS (from index.css):
+.glass-card {
+  @apply backdrop-blur-xl bg-card/80 border border-border/50 shadow-lg;
+}
+Key Features of Original Design:
+Shadcn/ui Components: Used standard Card, CardHeader, CardTitle, CardContent
+Glass Effect: glass-card class with backdrop blur and transparency
+Grid Layout: Two-column grid for plant power and panel specs
+Interactive Elements: Hover effects on icons and buttons
+Action Button: "Monitor Activity" button with eye icon
+Badge: Table count displayed as a badge
+Responsive: Grid layout adapts to screen size
+Imports Required:
+Key Features of Original Design:
+Shadcn/ui Components: Used standard Card, CardHeader, CardTitle, CardContent
+Glass Effect: glass-card class with backdrop blur and transparency
+Grid Layout: Two-column grid for plant power and panel specs
+Interactive Elements: Hover effects on icons and buttons
+Action Button: "Monitor Activity" button with eye icon
+Badge: Table count displayed as a badge
+Responsive: Grid layout adapts to screen size
+Imports Required:

@@ -23,14 +23,14 @@ interface UserData {
   createdAt: string;
 }
 
-const UserManagement = ({ onBack, initialView = 'list' }: UserManagementProps) => {
+const TechnicianManagement = ({ onBack, initialView = 'list' }: UserManagementProps) => {
   const { user, deleteUser } = useAuth();
   const [viewMode, setViewMode] = useState<'list' | 'add'>(initialView);
   const [users, setUsers] = useState<UserData[]>([]);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: 'user'
+    role: 'technician'
   });
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
@@ -137,7 +137,7 @@ const UserManagement = ({ onBack, initialView = 'list' }: UserManagementProps) =
               <div className="w-12 h-12 rounded-full gradient-primary flex items-center justify-center">
                 <UserPlus className="w-6 h-6 text-white" />
               </div>
-              <h2 className="text-3xl font-bold">Add New User</h2>
+              <h2 className="text-3xl font-bold">Add New Staff</h2>
             </div>
 
             <div className="space-y-6">
@@ -224,7 +224,7 @@ const UserManagement = ({ onBack, initialView = 'list' }: UserManagementProps) =
             className="gradient-primary text-white"
           >
             <UserPlus className="w-4 h-4 mr-2" />
-            Add New User
+            Add New Staff
           </Button>
         </div>
 
@@ -295,4 +295,4 @@ const UserManagement = ({ onBack, initialView = 'list' }: UserManagementProps) =
   );
 };
 
-export default UserManagement;
+export default TechnicianManagement;

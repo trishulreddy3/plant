@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type UserRole = 'superadmin' | 'plantadmin' | 'user';
+export type UserRole = 'superadmin' | 'plantadmin' | 'technician';
 
 export interface User {
   id: string;
@@ -103,7 +103,7 @@ const seedDemoUsers = () => {
       name: 'John Doe',
       email: 'john.doe@solartech.com',
       password: 'user123',
-      role: 'user',
+      role: 'technician',
       companyName: 'SolarTech Solutions',
       createdAt: new Date().toISOString()
     },
@@ -112,7 +112,7 @@ const seedDemoUsers = () => {
       name: 'Jane Smith',
       email: 'jane.smith@greenenergy.com',
       password: 'user123',
-      role: 'user',
+      role: 'technician',
       companyName: 'GreenEnergy Corp',
       createdAt: new Date().toISOString()
     }

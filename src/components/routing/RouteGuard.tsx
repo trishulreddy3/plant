@@ -36,8 +36,8 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
         // Could add logout logic here if needed
       }
       
-      if (user.role === 'user' && !user.companyName) {
-        console.error('User without company association, logging out');
+      if (user.role === 'technician' && !user.companyName) {
+        console.error('Technician without company association, logging out');
         // Could add logout logic here if needed
       }
     }

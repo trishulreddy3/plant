@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/auth';
 import UnifiedViewTables from '@/components/UnifiedViewTables';
+import BackButton from '@/components/ui/BackButton';
 
 const PlantMonitor = () => {
   const navigate = useNavigate();
@@ -33,12 +34,17 @@ const PlantMonitor = () => {
   }
 
   return (
-    <UnifiedViewTables
-      userRole="plant_admin"
-      showBackButton={true}
-      backButtonText="Back to Dashboard"
-      onBackClick={handleBackClick}
-    />
+    <div className="relative">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
+      <UnifiedViewTables
+        userRole="plant_admin"
+        showBackButton={true}
+        backButtonText="Back to Dashboard"
+        onBackClick={handleBackClick}
+      />
+    </div>
   );
 };
 

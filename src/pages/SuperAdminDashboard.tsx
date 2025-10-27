@@ -10,6 +10,7 @@ import { getCurrentUser, logout, getCompanies, type Company } from '@/lib/auth';
 import { getTablesByCompany } from '@/lib/data';
 import { getAllCompanies, checkServerStatus, deleteCompanyFolder, getPlantDetails } from '@/lib/realFileSystem';
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
+import BackButton from '@/components/ui/BackButton';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -145,11 +146,46 @@ const SuperAdminDashboard = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <>
+      <style>{`
+        .glassmorphism-card {
+          box-sizing: border-box;
+          width: 100%;
+          height: 254px;
+          background: rgba(217, 217, 217, 0.58);
+          border: 1px solid white;
+          box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
+          backdrop-filter: blur(6px);
+          border-radius: 17px;
+          cursor: pointer;
+          transition: all 0.5s;
+          display: flex;
+          flex-direction: column;
+          user-select: none;
+          font-weight: bolder;
+          color: black;
+          padding: 20px;
+        }
+
+        .glassmorphism-card:hover {
+          border: 1px solid black;
+          transform: scale(1.05);
+        }
+
+        .glassmorphism-card:active {
+          transform: scale(0.95) rotateZ(1.7deg);
+        }
+      `}</style>
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <header className="glass-header sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-primary">Super Admin Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-800 tracking-wide uppercase relative" style={{letterSpacing: '0.15em'}}>
+              <span className="bg-gradient-to-r from-blue-100 to-indigo-100 px-3 py-1 rounded-md shadow-sm">Super Admin Dashboard</span>
+            </h1>
             <p className="text-sm text-muted-foreground">Microsyslogic - Monitor & Manage</p>
             <div className="flex items-center gap-2 mt-1">
               <div className={`w-2 h-2 rounded-full ${serverStatus ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -182,50 +218,53 @@ const SuperAdminDashboard = () => {
             {companies.map((company) => {
               const tableCount = companyTableCounts[company.id] || 0;
               return (
-                <Card 
+                <div 
                   key={company.id} 
-                  className="glass-card hover:shadow-xl transition-all cursor-pointer group"
+                  className="glassmorphism-card"
                   onClick={() => navigate(`/company-monitor/${company.id}`)}
                 >
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-                        {company.name}
-                      </div>
-                      <Badge variant="outline">{tableCount} tables</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Plant Power</p>
-                        <p className="font-semibold flex items-center gap-1">
-                          <Zap className="h-3 w-3 text-primary" />
-                          {company.plantPowerKW} kW
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Panel Specs</p>
-                        <p className="font-semibold">{company.panelVoltage}V / {company.panelCurrent}A</p>
-                      </div>
+                  {/* Header Section */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      <h3 className="text-lg font-bold">{company.name}</h3>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/company-monitor/${company.id}`);
-                        }}
-                      >
-                        <Eye className="mr-2 h-3 w-3" />
-                        Monitor Activity
-                      </Button>
+                    <Badge variant="outline" className="bg-white/50 text-black border-black/20">
+                      {tableCount} tables
+                    </Badge>
+                  </div>
+                  
+                  {/* Content Grid */}
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4 flex-1">
+                    <div className="space-y-1">
+                      <p className="text-xs opacity-70">Plant Power</p>
+                      <p className="font-semibold flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        {company.plantPowerKW} kW
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="space-y-1">
+                      <p className="text-xs opacity-70">Panel Specs</p>
+                      <p className="font-semibold">
+                        {company.panelVoltage}V / {company.panelCurrent}A
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Action Button */}
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 bg-white/20 hover:bg-white/30 text-black border border-black/20 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/company-monitor/${company.id}`);
+                      }}
+                    >
+                      <Eye className="h-3 w-3" />
+                      Monitor Activity
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -342,7 +381,8 @@ const SuperAdminDashboard = () => {
         adminEmail={user?.email || ''}
         isLoading={isDeleting}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

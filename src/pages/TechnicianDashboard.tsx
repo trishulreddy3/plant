@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/auth';
 import UnifiedViewTables from '@/components/UnifiedViewTables';
+import BackButton from '@/components/ui/BackButton';
 
-const UserDashboard = () => {
+const TechnicianDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(getCurrentUser());
 
   useEffect(() => {
     const currentUser = getCurrentUser();
-    if (!currentUser || currentUser.role !== 'user') {
-      navigate('/user-login');
+    if (!currentUser || currentUser.role !== 'technician') {
+      navigate('/technician-login');
       return;
     }
     
@@ -29,10 +30,15 @@ const UserDashboard = () => {
   }
 
   return (
-    <UnifiedViewTables
-      userRole="user"
-    />
+    <div className="relative">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
+      <UnifiedViewTables
+        userRole="user"
+      />
+    </div>
   );
 };
 
-export default UserDashboard;
+export default TechnicianDashboard;

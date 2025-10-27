@@ -25,8 +25,8 @@ const AutoLogin: React.FC<AutoLoginProps> = ({ children }) => {
             case 'plant_admin':
               navigate('/plant-admin-dashboard');
               break;
-            case 'user':
-              navigate('/user-welcome');
+            case 'technician':
+              navigate('/technician-welcome');
               break;
             default:
               console.warn('Unknown user role:', user.role);

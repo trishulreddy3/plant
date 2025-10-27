@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { getTablesByCompany } from '@/lib/data';
 import { getCompanies } from '@/lib/auth';
 import { PlantDetails } from '@/lib/realFileSystem';
+import BackButton from '@/components/ui/BackButton';
 
 const Infrastructure = () => {
   const navigate = useNavigate();
@@ -290,6 +291,9 @@ const Infrastructure = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="absolute top-4 left-4 z-10">
+        <BackButton />
+      </div>
       <header className="glass-header sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <Button
@@ -363,15 +367,15 @@ const Infrastructure = () => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse border border-gray-300">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Table No</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Top Row Panels</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Bottom Row Panels</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Voltage per Panel</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Current per Panel</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                    <tr className="bg-gray-100 border-b-2 border-gray-400">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Table No</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Top Row Panels</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Bottom Row Panels</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Voltage per Panel</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Current per Panel</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">
                         <div className="flex items-center gap-2">
                           Max Power Generating
                           <Select value={powerUnit} onValueChange={(value: 'W' | 'kW' | 'MW') => setPowerUnit(value)}>
@@ -386,7 +390,7 @@ const Infrastructure = () => {
                           </Select>
                         </div>
                       </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Total Panels</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-800">Total Panels</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -402,13 +406,13 @@ const Infrastructure = () => {
                       const maxTotalPower = maxPowerPerPanel * totalPanels;
                       
                       return (
-                        <tr key={table.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 font-medium text-primary">{table.serialNumber}</td>
-                          <td className="py-3 px-4">{topPanelsCount}</td>
-                          <td className="py-3 px-4">{bottomPanelsCount}</td>
-                          <td className="py-3 px-4">{voltagePerPanel}V</td>
-                          <td className="py-3 px-4">{currentPerPanel}A</td>
-                          <td className="py-3 px-4 font-semibold text-green-600">{convertPower(maxTotalPower)}</td>
+                        <tr key={table.id} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="py-3 px-4 font-medium text-primary border-r border-gray-200">{table.serialNumber}</td>
+                          <td className="py-3 px-4 border-r border-gray-200">{topPanelsCount}</td>
+                          <td className="py-3 px-4 border-r border-gray-200">{bottomPanelsCount}</td>
+                          <td className="py-3 px-4 border-r border-gray-200">{voltagePerPanel}V</td>
+                          <td className="py-3 px-4 border-r border-gray-200">{currentPerPanel}A</td>
+                          <td className="py-3 px-4 font-semibold text-green-600 border-r border-gray-200">{convertPower(maxTotalPower)}</td>
                           <td className="py-3 px-4 font-medium">{totalPanels}</td>
                         </tr>
                       );

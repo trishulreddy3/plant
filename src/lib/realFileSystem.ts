@@ -108,7 +108,7 @@ export interface UserCredentials {
   id: string;
   email: string;
   password: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'technician';
   createdAt: string;
   createdBy: string;
 }
@@ -159,11 +159,17 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT); // Use configurable timeout
     
+    // Only set Content-Type for requests with a body
+    const headers: HeadersInit = {
+      ...options.headers,
+    };
+    
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       signal: controller.signal,
       ...options,
     });
@@ -238,15 +244,40 @@ export const addTableToPlant = async (
   });
 };
 
-// Add user to company
-export const addUserToCompany = async (
+// Add staff entry to company
+export const addStaffEntry = async (
+  companyId: string,
+  companyName: string,
+  name: string,
+  role: 'management' | 'admin' | 'technician',
+  email: string,
+  phoneNumber: string,
+  password: string,
+  createdBy: string
+): Promise<{ success: boolean; message: string; entry: any }> => {
+  return await apiCall(`/companies/${companyId}/entries`, {
+    method: 'POST',
+    body: JSON.stringify({
+      companyName,
+      name,
+      role,
+      email,
+      phoneNumber,
+      password,
+      createdBy,
+    }),
+  });
+};
+
+// Add technician to company
+export const addTechnicianToCompany = async (
   companyId: string,
   email: string,
   password: string,
-  role: 'admin' | 'user',
+  role: 'admin' | 'technician',
   createdBy: string
-): Promise<{ success: boolean; message: string; user: UserCredentials }> => {
-  return await apiCall(`/companies/${companyId}/users`, {
+): Promise<{ success: boolean; message: string; technician: UserCredentials }> => {
+  return await apiCall(`/companies/${companyId}/technicians`, {
     method: 'POST',
     body: JSON.stringify({
       email,
@@ -255,6 +286,18 @@ export const addUserToCompany = async (
       createdBy,
     }),
   });
+};
+
+// Legacy function name for backward compatibility
+export const addUserToCompany = async (
+  companyId: string,
+  email: string,
+  password: string,
+  role: 'admin' | 'technician',
+  createdBy: string
+): Promise<{ success: boolean; message: string; user: UserCredentials }> => {
+  const result = await addTechnicianToCompany(companyId, email, password, role, createdBy);
+  return { ...result, user: result.technician };
 };
 
 // Get plant details for a company
@@ -268,9 +311,14 @@ export const getPlantDetails = async (companyId: string): Promise<PlantDetails |
   }
 };
 
-// Get users for a company
+// Get technicians for a company
+export const getTechnicians = async (companyId: string): Promise<UserCredentials[]> => {
+  return await apiCall(`/companies/${companyId}/technicians`);
+};
+
+// Legacy function name for backward compatibility
 export const getUsers = async (companyId: string): Promise<UserCredentials[]> => {
-  return await apiCall(`/companies/${companyId}/users`);
+  return getTechnicians(companyId);
 };
 
 // Get admin credentials for a company
@@ -366,9 +414,7 @@ export const refreshPanelData = async (companyId: string): Promise<boolean> => {
     
     const response = await fetch(`${API_BASE_URL}/companies/${companyId}/refresh-panel-data`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      // Don't set Content-Type for requests without body
     });
 
     if (!response.ok) {
