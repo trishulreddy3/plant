@@ -50,3 +50,8 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Documentation files
+README.md
+**/README.md
+*.md

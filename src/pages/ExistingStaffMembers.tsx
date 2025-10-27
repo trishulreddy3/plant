@@ -183,8 +183,9 @@ const ExistingStaffMembers = () => {
                 <Users className="h-5 w-5 text-primary" />
                 Staff Members
               </div>
-              <Badge variant="secondary" className="text-lg px-4 py-1">
-                {searchQuery ? `${filteredEntries.length}/${staffEntries.length}` : staffEntries.length}
+              <Badge variant="secondary" className="text-lg px-4 py-1 flex items-center gap-1">
+                <span className="font-semibold">Total Staff:</span>
+                <span>{searchQuery ? `${filteredEntries.length}/${staffEntries.length}` : staffEntries.length}</span>
               </Badge>
             </CardTitle>
           </CardHeader>
