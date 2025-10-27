@@ -348,28 +348,6 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              {/* Quick Links */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Quick Links</h3>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <a href="/privacy-policy" className="text-gray-600 hover:text-primary">
-                      Privacy Policy
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/terms-of-service" className="text-gray-600 hover:text-primary">
-                      Terms of Service
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/help" className="text-gray-600 hover:text-primary">
-                      Help & Support
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
               {/* Contact */}
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Contact</h3>
@@ -390,11 +368,6 @@ const SuperAdminDashboard = () => {
                 © 2025 Microsyslogic. All rights reserved.
               </div>
               <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                <span>GDPR Compliant</span>
-                <span>•</span>
-                <span>CCPA Compliant</span>
-                <span>•</span>
-                <span>ISO 27001</span>
               </div>
             </div>
           </div>
@@ -755,28 +728,6 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              {/* Quick Links */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Quick Links</h3>
-                <ul className="space-y-2 text-sm">
-                  <li>
-                    <a href="/privacy-policy" className="text-gray-600 hover:text-primary">
-                      Privacy Policy
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/terms-of-service" className="text-gray-600 hover:text-primary">
-                      Terms of Service
-                    </a>
-                  </li>
-                  <li>
-                    <a href="/help" className="text-gray-600 hover:text-primary">
-                      Help & Support
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
               {/* Contact */}
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Contact</h3>
@@ -797,11 +748,6 @@ const SuperAdminDashboard = () => {
                 © 2025 Microsyslogic. All rights reserved.
               </div>
               <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-                <span>GDPR Compliant</span>
-                <span>•</span>
-                <span>CCPA Compliant</span>
-                <span>•</span>
-                <span>ISO 27001</span>
               </div>
             </div>
           </div>

@@ -9,7 +9,7 @@ const Footer: React.FC<FooterProps> = ({ userRole }) => {
   return (
     <footer className="bg-gray-50 border-t border-gray-200 mt-auto">
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Company Info */}
           <div>
             <h3 className="font-semibold text-gray-900 mb-3">Microsyslogic</h3>
@@ -20,28 +20,6 @@ const Footer: React.FC<FooterProps> = ({ userRole }) => {
               <Shield className="h-4 w-4 mr-2" />
               <span>Secure & Compliant</span>
             </div>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Quick Links</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a href="/privacy-policy" className="text-gray-600 hover:text-primary">
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="/terms-of-service" className="text-gray-600 hover:text-primary">
-                  Terms of Service
-                </a>
-              </li>
-              <li>
-                <a href="/help" className="text-gray-600 hover:text-primary">
-                  Help & Support
-                </a>
-              </li>
-            </ul>
           </div>
 
           {/* Contact */}
@@ -87,17 +65,8 @@ const Footer: React.FC<FooterProps> = ({ userRole }) => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-gray-200 mt-6 pt-4 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-500">
-          <div>
-            © 2025 Microsyslogic. All rights reserved.
-          </div>
-          <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-            <span>GDPR Compliant</span>
-            <span>•</span>
-            <span>CCPA Compliant</span>
-            <span>•</span>
-            <span>ISO 27001</span>
-          </div>
+        <div className="border-t border-gray-200 mt-6 pt-4 text-center text-sm text-gray-500">
+          © 2025 Microsyslogic. All rights reserved.
         </div>
       </div>
     </footer>

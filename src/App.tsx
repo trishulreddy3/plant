@@ -24,8 +24,6 @@ import PlantView from "./pages/PlantView";
 import AuthTest from "./pages/AuthTest";
 import CookieSettings from "./pages/CookieSettings";
 import CookieInspector from "./pages/CookieInspector";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 import CookieConsent from "./components/CookieConsent";
 import AutoLogin from "./components/AutoLogin";
@@ -99,12 +97,6 @@ const App = () => {
             
             {/* Cookie Inspector */}
             <Route path="/cookie-inspector" element={<CookieInspector />} />
-            
-            {/* Privacy Policy */}
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            
-            {/* Terms of Service */}
-            <Route path="/terms-of-service" element={<TermsOfService />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
