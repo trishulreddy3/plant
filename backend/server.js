@@ -1121,6 +1121,9 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
     
+    // Trim all input fields to remove leading/trailing spaces
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
     const sanitizedCompanyName = companyName.toLowerCase().trim();
     
     // Find company by name
@@ -1139,7 +1142,7 @@ app.post('/api/auth/login', async (req, res) => {
         const adminData = await fs.readFile(adminPath, 'utf8');
         const admin = JSON.parse(adminData);
         
-        if (admin.email === email && admin.password === password) {
+        if (admin.email === trimmedEmail && admin.password === trimmedPassword) {
           // Get companyId from plant_details.json
           let companyId = sanitizedCompanyName;
           try {
@@ -1180,7 +1183,7 @@ app.post('/api/auth/login', async (req, res) => {
         const techniciansData = await fs.readFile(techniciansPath, 'utf8');
         const technicians = JSON.parse(techniciansData.trim());
         
-        const technician = technicians.find(t => t.email === email && t.password === password);
+        const technician = technicians.find(t => t.email === trimmedEmail && t.password === trimmedPassword);
         if (technician) {
           // Get companyId from plant_details.json
           let companyId = sanitizedCompanyName;
@@ -1223,7 +1226,7 @@ app.post('/api/auth/login', async (req, res) => {
         const managementData = await fs.readFile(managementPath, 'utf8');
         const managementList = JSON.parse(managementData.trim());
         
-        const managementUser = managementList.find(m => m.email === email && m.password === password && m.role === 'management');
+        const managementUser = managementList.find(m => m.email === trimmedEmail && m.password === trimmedPassword && m.role === 'management');
         if (managementUser) {
           // Get companyId from plant_details.json
           let companyId = sanitizedCompanyName;
@@ -1242,7 +1245,7 @@ app.post('/api/auth/login', async (req, res) => {
           try {
             const entriesData = await fs.readFile(entriesPath, 'utf8');
             const entries = JSON.parse(entriesData.trim());
-            const entry = entries.find(e => e.email === email && e.role === 'management');
+            const entry = entries.find(e => e.email === trimmedEmail && e.role === 'management');
             if (entry) {
               userName = entry.name;
             }
@@ -1279,7 +1282,7 @@ app.post('/api/auth/login', async (req, res) => {
       const adminData = await fs.readFile(adminPath, 'utf8');
       const admin = JSON.parse(adminData);
       
-      if (admin.email === email && admin.password === password) {
+      if (admin.email === trimmedEmail && admin.password === trimmedPassword) {
         // Get companyId from plant_details.json
         let companyId = sanitizedCompanyName;
         try {
@@ -1313,7 +1316,7 @@ app.post('/api/auth/login', async (req, res) => {
       const techniciansData = await fs.readFile(techniciansPath, 'utf8');
       const technicians = JSON.parse(techniciansData.trim());
       
-      const technician = technicians.find(t => t.email === email && t.password === password);
+      const technician = technicians.find(t => t.email === trimmedEmail && t.password === trimmedPassword);
       if (technician) {
         // Get companyId from plant_details.json
         let companyId = sanitizedCompanyName;
