@@ -81,9 +81,9 @@ const App = () => {
             
             {/* Plant Admin Routes */}
             <Route path="/plant-admin-dashboard" element={<PlantAdminDashboard />}>
-              <Route index element={<Navigate to="infrastructure" replace />} />
-              <Route path="infrastructure" element={<Infrastructure />} />
+              <Route index element={<Navigate to="staff" replace />} />
               <Route path="staff" element={<Staff />} />
+              <Route path="infrastructure" element={<Infrastructure />} />
             </Route>
             <Route path="/plant-monitor" element={<PlantMonitor />} />
             <Route path="/add-table" element={<AddTable />} />

@@ -127,7 +127,7 @@ const PlantAdminDashboard = () => {
 
       <main className="w-full">
         <Tabs
-          value={location.pathname.endsWith('/staff') ? 'staff' : 'infrastructure'}
+          value={location.pathname.endsWith('/infrastructure') ? 'infrastructure' : 'staff'}
           onValueChange={(v) => navigate(`/plant-admin-dashboard/${v}`)}
           className="w-full"
         >
@@ -137,18 +137,18 @@ const PlantAdminDashboard = () => {
               <div className="flex items-center justify-center py-3">
                 <TabsList className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 shadow-inner border border-gray-200/50 gap-1">
                   <TabsTrigger
-                    value="infrastructure"
-                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span>Infrastructure</span>
-                  </TabsTrigger>
-                  <TabsTrigger
                     value="staff"
                     className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
                   >
                     <Users className="h-4 w-4" />
                     <span>Staff</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="infrastructure"
+                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Infrastructure</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -157,10 +157,10 @@ const PlantAdminDashboard = () => {
 
           {/* Tab Content - Proper spacing to prevent overlap */}
           <div className="container mx-auto px-4 py-6">
-            <TabsContent value="infrastructure" className="mt-0 space-y-6">
+            <TabsContent value="staff" className="mt-0 space-y-6">
               <Outlet />
             </TabsContent>
-            <TabsContent value="staff" className="mt-0 space-y-6">
+            <TabsContent value="infrastructure" className="mt-0 space-y-6">
               <Outlet />
             </TabsContent>
           </div>
