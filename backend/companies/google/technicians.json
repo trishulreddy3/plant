@@ -1,29 +1,56 @@
 [
   {
-    "id": "user-1761461601002",
+    "id": "user-1762676257732",
+    "email": "trishul@gmail.com",
+    "password": "ZKoV3UolQ9wQ",
+    "role": "technician",
+    "phoneNumber": "+91 7386986921",
+    "createdAt": "2025-11-09T08:17:37.732Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1762676281953",
     "email": "harsha@gmail.com",
-    "password": "oRJuulT76zY1",
+    "password": "OarQoDcDccqI",
     "role": "technician",
-    "createdAt": "2025-10-26T06:53:21.002Z",
-    "createdBy": "rakesh@gmail.com",
-    "phoneNumber": "7386986921"
+    "phoneNumber": "+91 9847589856",
+    "createdAt": "2025-11-09T08:18:01.953Z",
+    "createdBy": "rakesh@gmail.com"
   },
   {
-    "id": "user-1761472052223",
+    "id": "user-1762676381789",
     "email": "janani@gmail.com",
-    "password": "8r2aCHL2MARz",
+    "password": "oN56PjuxOmIt",
     "role": "technician",
-    "createdAt": "2025-10-26T09:47:32.223Z",
-    "createdBy": "rakesh@gmail.com",
-    "phoneNumber": "+917013801816 "
+    "phoneNumber": "+91 8795312455",
+    "createdAt": "2025-11-09T08:19:41.789Z",
+    "createdBy": "rakesh@gmail.com"
   },
   {
-    "id": "user-1761472564014",
+    "id": "user-1762676403042",
     "email": "barnali@gmail.com",
-    "password": "bJCrIiHPpKUr",
+    "password": "8qHOPcuBWk92",
     "role": "technician",
-    "createdAt": "2025-10-26T09:56:04.014Z",
-    "createdBy": "rakesh@gmail.com",
-    "phoneNumber": "523145849645"
+    "phoneNumber": "+91 5231458496",
+    "createdAt": "2025-11-09T08:20:03.042Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1762676449118",
+    "email": "hemanth@gmail.com",
+    "password": "2YWP4WI3UX5V",
+    "role": "technician",
+    "phoneNumber": "+91 8765422453",
+    "createdAt": "2025-11-09T08:20:49.118Z",
+    "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "user-1762676484346",
+    "email": "kaladhar@gmail.com",
+    "password": "RuetvG5f4xoI",
+    "role": "technician",
+    "phoneNumber": "+91 5231458496",
+    "createdAt": "2025-11-09T08:21:24.346Z",
+    "createdBy": "rakesh@gmail.com"
   }
 ]

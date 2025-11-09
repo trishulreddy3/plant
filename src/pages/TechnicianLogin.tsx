@@ -250,11 +250,15 @@ const TechnicianLogin = () => {
             <h3 className="text-sm font-semibold text-green-800 mb-2">Demo Credentials:</h3>
             <div className="text-xs text-green-700 space-y-1">
               <div><strong>Technicians:</strong></div>
-              <div>Company: [company name] (auto-converted to lowercase)</div>
-              <div>Email: [User email from company]</div>
-              <div>Password: [User password from company]</div>
+              <div>Company: google</div>
+              <div>Email: trishul@gmail.com</div>
+              <div>Password: ZKoV3UolQ9wQ</div>
+              <div className="mt-1">Email: harsha@gmail.com</div>
+              <div>Password: OarQoDcDccqI</div>
+              <div className="mt-1">Email: janani@gmail.com</div>
+              <div>Password: oN56PjuxOmIt</div>
               <div className="mt-2"><strong>Super Admin:</strong></div>
-              <div>Company: microsyslogic (fixed)</div>
+              <div>Company: microsyslogic</div>
               <div>Email: super_admin@microsyslogic.com</div>
               <div>Password: super_admin_password</div>
             </div>

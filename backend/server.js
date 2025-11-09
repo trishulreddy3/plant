@@ -29,6 +29,19 @@ const corsOptions = {
       } else {
         return allowed.test(origin);
       }
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
 
 // Helper: keep entries.json consistent with role files
 async function sanitizeCompanyEntries(companyPath) {
@@ -53,16 +66,40 @@ async function sanitizeCompanyEntries(companyPath) {
     try { technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim()); } catch (_) { technicians = []; }
     try { management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim()); } catch (_) { management = []; }
 
-    const techEmails = new Set(technicians.map(t => `${t.email}|technician`));
-    const mgmtEmails = new Set(management.map(m => `${m.email}|management`));
+    // Ensure arrays are valid before mapping
+    if (!Array.isArray(technicians)) technicians = [];
+    if (!Array.isArray(management)) management = [];
+    
+    const techEmails = new Set(technicians.filter(t => t && t.email).map(t => `${t.email}|technician`));
+    const mgmtEmails = new Set(management.filter(m => m && m.email).map(m => `${m.email}|management`));
+
+    // Get main admin email to filter it out
+    let mainAdminEmail = null;
+    try {
+      const adminPath = path.join(companyPath, 'admin.json');
+      const adminData = await fs.readFile(adminPath, 'utf8');
+      const admin = JSON.parse(adminData.trim());
+      if (admin && admin.email) {
+        mainAdminEmail = admin.email;
+      }
+    } catch (e) {
+      // Admin file doesn't exist or can't be read, that's okay
+    }
 
     const filtered = entries.filter(e => {
       if (!e || !e.email || !e.role) return false;
       const key = `${e.email}|${e.role}`;
       if (e.role === 'technician') return techEmails.has(key);
       if (e.role === 'management') return mgmtEmails.has(key);
-      // keep admin entries as-is
-      return e.role === 'admin';
+      // For admin entries: keep only if it's NOT the main admin (added admins should be kept)
+      if (e.role === 'admin') {
+        // Filter out the main admin, but keep other admin entries
+        if (mainAdminEmail && e.email === mainAdminEmail) {
+          return false; // Hide the main admin
+        }
+        return true; // Keep added admin entries
+      }
+      return false;
     });
 
     // Only write if changed length to avoid churn
@@ -125,7 +162,6 @@ async function sanitizeCompanyUsers(companyPath) {
     console.warn('sanitizeCompanyUsers warning:', err?.message || err);
   }
 }
-    });
 
 // Get management users
 app.get('/api/companies/:companyId/management', async (req, res) => {
@@ -376,19 +412,6 @@ app.put('/api/companies/:companyId/resolve-panel', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-
-app.use(cors(corsOptions));
 
 // Enhanced JSON parsing with error handling
 app.use(express.json({
@@ -517,54 +540,6 @@ async function findCompanyFolder(companyId) {
   } catch (error) {
     console.error('Error finding company folder:', error);
     return null;
-  }
-}
-
-// Top-level helper: ensure role data is separated correctly across files
-async function sanitizeCompanyUsers(companyPath) {
-  try {
-    const techniciansPath = path.join(companyPath, 'technicians.json');
-    const managementPath = path.join(companyPath, 'management.json');
-    const adminPath = path.join(companyPath, 'admin.json');
-
-    let technicians = [];
-    let management = [];
-    let admin = null;
-    try { technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim()); } catch (_) { technicians = []; }
-    try { management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim()); } catch (_) { management = []; }
-    try { admin = JSON.parse((await fs.readFile(adminPath, 'utf8')).trim()); } catch (_) { admin = null; }
-
-    const normalizedTechs = [];
-    let updatedMgmt = Array.isArray(management) ? management.slice() : [];
-    let updatedAdmin = admin && typeof admin === 'object' ? admin : null;
-
-    for (const u of Array.isArray(technicians) ? technicians : []) {
-      if (u && u.role === 'technician') {
-        normalizedTechs.push(u);
-      } else if (u && u.role === 'management') {
-        if (!updatedMgmt.find(m => m.email === u.email)) {
-          updatedMgmt.push(u);
-        }
-      } else if (u && u.role === 'admin') {
-        if (!updatedAdmin) {
-          updatedAdmin = { email: u.email, password: u.password, name: u.name || 'Admin', createdAt: u.createdAt || new Date().toISOString() };
-        } else {
-          const prev = new Date(updatedAdmin.createdAt || 0).getTime();
-          const cur = new Date(u.createdAt || 0).getTime();
-          if (isFinite(cur) && cur >= prev) {
-            updatedAdmin = { email: u.email, password: u.password, name: u.name || updatedAdmin.name || 'Admin', createdAt: u.createdAt };
-          }
-        }
-      }
-    }
-
-    await fs.writeFile(techniciansPath, JSON.stringify(normalizedTechs, null, 2));
-    await fs.writeFile(managementPath, JSON.stringify(updatedMgmt, null, 2));
-    if (updatedAdmin) {
-      await fs.writeFile(adminPath, JSON.stringify(updatedAdmin, null, 2));
-    }
-  } catch (err) {
-    console.warn('sanitizeCompanyUsers warning:', err?.message || err);
   }
 }
 
@@ -1338,24 +1313,9 @@ async function syncEntriesFromRoleFiles(companyPath) {
       }
     }
 
-    // Sync admin (if exists and not in entries)
-    if (admin && admin.email) {
-      const key = `${admin.email}|admin`;
-      if (!existingEntriesMap.has(key)) {
-        const newEntry = {
-          id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          companyName: admin.companyName || '',
-          name: admin.name || 'Admin',
-          role: 'admin',
-          email: admin.email,
-          phoneNumber: admin.phoneNumber || '',
-          createdAt: admin.createdAt || new Date().toISOString(),
-          createdBy: admin.createdBy || 'system'
-        };
-        entries.push(newEntry);
-        hasChanges = true;
-      }
-    }
+    // Don't sync the main admin to entries - it should not be visible
+    // The main admin in admin.json should NOT appear in entries
+    // Only additional admin entries (if added via management.json with role='admin') would be synced
 
     // Write back if changes were made
     if (hasChanges) {
@@ -1427,6 +1387,19 @@ app.get('/api/companies/:companyId/entries', async (req, res) => {
         }
       });
 
+      // Get main admin email to filter it out from entries
+      let mainAdminEmail = null;
+      try {
+        const adminPath = path.join(companyPath, 'admin.json');
+        const adminData = await fs.readFile(adminPath, 'utf8');
+        const admin = JSON.parse(adminData.trim());
+        if (admin && admin.email) {
+          mainAdminEmail = admin.email;
+        }
+      } catch (e) {
+        // Admin file doesn't exist or can't be read, that's okay
+      }
+
       // Enrich entries with phone numbers and ensure data consistency
       if (Array.isArray(entries)) {
         entries = entries.map(e => {
@@ -1440,10 +1413,21 @@ app.get('/api/companies/:companyId/entries', async (req, res) => {
             ...e,
             phoneNumber: finalPhone,
           };
-        }).filter(e => e && e.email && e.role); // Filter out invalid entries
+        }).filter(e => {
+          // Filter out invalid entries
+          if (!e || !e.email || !e.role) return false;
+          
+          // Filter out the main admin (the one who created the company)
+          // But keep other admin entries (added admins)
+          if (e.role === 'admin' && mainAdminEmail && e.email === mainAdminEmail) {
+            return false; // Hide the main admin
+          }
+          
+          return true; // Keep all other entries
+        });
       }
       
-      console.log(`[GET /entries] Returning ${entries.length} entries for company ${companyId}`);
+      console.log(`[GET /entries] Returning ${entries.length} entries for company ${companyId} (main admin filtered out)`);
       res.json(entries);
     } catch (error) {
       console.error('[GET /entries] Error:', error);
@@ -1705,9 +1689,13 @@ app.put('/api/companies/:companyId/entries/:entryId', async (req, res) => {
 app.delete('/api/companies/:companyId/entries/:entryId', async (req, res) => {
   try {
     const { companyId, entryId } = req.params;
+    
+    console.log(`[DELETE /entries] Deleting entry - companyId: ${companyId}, entryId: ${entryId}`);
+    
     const companyPath = await findCompanyFolder(companyId);
     
     if (!companyPath) {
+      console.log(`[DELETE /entries] Company not found: ${companyId}`);
       return res.status(404).json({ error: 'Company not found' });
     }
     
@@ -1721,73 +1709,226 @@ app.delete('/api/companies/:companyId/entries/:entryId', async (req, res) => {
     try {
       const entriesData = await fs.readFile(entriesPath, 'utf8');
       entries = JSON.parse(entriesData.trim());
+      if (!Array.isArray(entries)) entries = [];
+      console.log(`[DELETE /entries] Loaded ${entries.length} entries from entries.json`);
     } catch (error) {
+      console.log(`[DELETE /entries] No entries.json found`);
       return res.status(404).json({ error: 'No entries found' });
     }
     
     // Find and remove the entry by id
-    const entryIndex = entries.findIndex(e => e.id === entryId);
+    let entryIndex = entries.findIndex(e => e && e.id === entryId);
+    let deletedEntry = null;
+    
     if (entryIndex === -1) {
+      console.log(`[DELETE /entries] Entry ID ${entryId} not found, trying fallback methods...`);
+      
+      // If it's a user-* ID, try to find by looking up in role-specific files first
+      if (entryId.startsWith('user-')) {
+        console.log(`[DELETE /entries] Entry ID is user-* format, checking role-specific files...`);
+        
+        // Try to find in technicians.json
+        try {
+          const technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim());
+          if (Array.isArray(technicians)) {
+            const tech = technicians.find(t => t && t.id === entryId);
+            if (tech && tech.email) {
+              // Find entry by email+role
+              entryIndex = entries.findIndex(e => e && e.email === tech.email && e.role === 'technician');
+              if (entryIndex !== -1) {
+                deletedEntry = entries[entryIndex];
+                console.log(`[DELETE /entries] Found entry by email from technicians.json: ${tech.email}`);
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+        
+        // Try to find in management.json if not found
+        if (entryIndex === -1) {
+          try {
+            const management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim());
+            if (Array.isArray(management)) {
+              const mgmt = management.find(m => m && m.id === entryId);
+              if (mgmt && mgmt.email) {
+                // Find entry by email+role
+                entryIndex = entries.findIndex(e => e && e.email === mgmt.email && e.role === 'management');
+                if (entryIndex !== -1) {
+                  deletedEntry = entries[entryIndex];
+                  console.log(`[DELETE /entries] Found entry by email from management.json: ${mgmt.email}`);
+                }
+              }
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+      
+      // If still not found, try to find by email from the entryId (last resort)
+      if (entryIndex === -1) {
+        // Try to extract email from role files by matching the user-* ID
+        let emailToFind = null;
+        let roleToFind = null;
+        
+        // Check technicians
+        try {
+          const technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim());
+          if (Array.isArray(technicians)) {
+            const tech = technicians.find(t => t && t.id === entryId);
+            if (tech) {
+              emailToFind = tech.email;
+              roleToFind = 'technician';
+            }
+          }
+        } catch (e) { /* ignore */ }
+        
+        // Check management
+        if (!emailToFind) {
+          try {
+            const management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim());
+            if (Array.isArray(management)) {
+              const mgmt = management.find(m => m && m.id === entryId);
+              if (mgmt) {
+                emailToFind = mgmt.email;
+                roleToFind = 'management';
+              }
+            }
+          } catch (e) { /* ignore */ }
+        }
+        
+        if (emailToFind && roleToFind) {
+          entryIndex = entries.findIndex(e => e && e.email === emailToFind && e.role === roleToFind);
+          if (entryIndex !== -1) {
+            deletedEntry = entries[entryIndex];
+            console.log(`[DELETE /entries] Found entry by email+role: ${emailToFind}, ${roleToFind}`);
+          }
+        }
+      }
+      
+      if (entryIndex === -1) {
+        console.log(`[DELETE /entries] Entry not found with ID: ${entryId}`);
+        return res.status(404).json({ error: 'Entry not found' });
+      }
+    } else {
+      deletedEntry = entries[entryIndex];
+      console.log(`[DELETE /entries] Found entry at index ${entryIndex}`);
+    }
+    
+    if (!deletedEntry) {
+      console.log(`[DELETE /entries] Deleted entry is null`);
       return res.status(404).json({ error: 'Entry not found' });
     }
     
-    const deletedEntry = entries[entryIndex];
+    console.log(`[DELETE /entries] Deleting entry:`, JSON.stringify(deletedEntry, null, 2));
+    
+    // Remove from entries array
     entries.splice(entryIndex, 1);
     // Also remove any duplicate entries with same email+role to keep file clean
     if (deletedEntry && deletedEntry.email && deletedEntry.role) {
-      entries = entries.filter(e => !(e.email === deletedEntry.email && e.role === deletedEntry.role));
+      try {
+        const beforeFilter = entries.length;
+        entries = entries.filter(e => {
+          if (!e || !e.email || !e.role) return true; // Keep entries without email/role
+          return !(e.email === deletedEntry.email && e.role === deletedEntry.role);
+        });
+        const afterFilter = entries.length;
+        if (beforeFilter !== afterFilter) {
+          console.log(`[DELETE /entries] Removed ${beforeFilter - afterFilter} duplicate entries`);
+        }
+      } catch (filterError) {
+        console.error('[DELETE /entries] Error filtering duplicates:', filterError);
+        // Continue even if filter fails
+      }
     }
     
     // Remove from appropriate file based on role
-    if (deletedEntry.role === 'admin') {
+    if (!deletedEntry.role) {
+      console.log(`[DELETE /entries] Warning: Entry has no role, skipping role-specific file deletion`);
+    } else if (deletedEntry.role === 'admin') {
       // Remove from admin.json
       try {
         const adminData = await fs.readFile(adminPath, 'utf8');
         const admin = JSON.parse(adminData.trim());
-        if (admin.email === deletedEntry.email) {
-          // If deleting the main admin, we might want to keep the file but clear it
-          // or leave it as is for now
-          await fs.writeFile(adminPath, JSON.stringify(admin, null, 2));
+        if (admin && admin.email === deletedEntry.email) {
+          // Clear admin.json if deleting the main admin
+          await fs.writeFile(adminPath, JSON.stringify({}, null, 2), 'utf8');
+          console.log(`[DELETE /entries] Removed admin from admin.json`);
         }
       } catch (error) {
-        console.error('Error updating admin.json:', error);
+        console.error('[DELETE /entries] Error updating admin.json:', error);
       }
     } else if (deletedEntry.role === 'management') {
       // Remove from management.json
       try {
         const managementData = await fs.readFile(managementPath, 'utf8');
         let management = JSON.parse(managementData.trim());
-        management = management.filter(m => m.email !== deletedEntry.email);
-        await fs.writeFile(managementPath, JSON.stringify(management, null, 2));
+        if (!Array.isArray(management)) management = [];
+        
+        const beforeCount = management.length;
+        management = management.filter(m => m && m.email !== deletedEntry.email);
+        const afterCount = management.length;
+        
+        await fs.writeFile(managementPath, JSON.stringify(management, null, 2), 'utf8');
+        console.log(`[DELETE /entries] Removed ${beforeCount - afterCount} entry(ies) from management.json`);
       } catch (error) {
-        console.error('Error updating management.json:', error);
+        console.error('[DELETE /entries] Error updating management.json:', error);
+      }
+    } else if (deletedEntry.role === 'technician') {
+      // Remove from technicians.json
+      try {
+        const techniciansData = await fs.readFile(techniciansPath, 'utf8');
+        let technicians = JSON.parse(techniciansData.trim());
+        if (!Array.isArray(technicians)) technicians = [];
+        
+        const beforeCount = technicians.length;
+        technicians = technicians.filter(t => t && t.email !== deletedEntry.email);
+        const afterCount = technicians.length;
+        
+        await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2), 'utf8');
+        console.log(`[DELETE /entries] Removed ${beforeCount - afterCount} entry(ies) from technicians.json`);
+      } catch (error) {
+        console.error('[DELETE /entries] Error updating technicians.json:', error);
       }
     }
     
-    // Also remove from technicians.json by email (for backward compatibility)
-    let technicians = [];
+    // Ensure entries folder exists
+    const entriesFolder = path.join(companyPath, 'entries');
     try {
-      const techniciansData = await fs.readFile(techniciansPath, 'utf8');
-      technicians = JSON.parse(techniciansData.trim());
-      
-      // Remove technician with matching email
-      technicians = technicians.filter(t => t.email !== deletedEntry.email);
-      
-      // Write technicians back
-      await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
+      await fs.access(entriesFolder);
     } catch (error) {
-      console.error('Error updating technicians.json:', error);
-      // Continue even if technicians update fails
+      await fs.mkdir(entriesFolder, { recursive: true });
     }
     
-    // Write entries back to file and sanitize for consistency
-    await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
-    await sanitizeCompanyEntries(companyPath);
+    // Write entries.json back
+    try {
+      const entriesJson = JSON.stringify(entries, null, 2);
+      await fs.writeFile(entriesPath, entriesJson, 'utf8');
+      console.log(`[DELETE /entries] Successfully wrote ${entries.length} entries to entries.json`);
+      
+      // Verify the write
+      try {
+        const verifyData = await fs.readFile(entriesPath, 'utf8');
+        const verifyEntries = JSON.parse(verifyData.trim());
+        console.log(`[DELETE /entries] Verification: File contains ${verifyEntries.length} entries`);
+      } catch (verifyError) {
+        console.error(`[DELETE /entries] Warning: Could not verify write:`, verifyError);
+      }
+    } catch (writeError) {
+      console.error('[DELETE /entries] Error writing entries.json:', writeError);
+      throw new Error(`Failed to write entries.json: ${writeError.message}`);
+    }
     
-    res.json({ success: true, message: 'Entry deleted successfully' });
+    // Sanitize for consistency (wrap in try-catch to prevent errors)
+    try {
+      await sanitizeCompanyEntries(companyPath);
+    } catch (sanitizeError) {
+      console.error('[DELETE /entries] Warning: Error during sanitization (non-fatal):', sanitizeError);
+      // Continue even if sanitization fails
+    }
+    
+    res.json({ success: true, message: 'Entry deleted successfully', deletedEntry });
   } catch (error) {
-    console.error('Error deleting entry:', error);
-    res.status(500).json({ error: 'Failed to delete entry' });
+    console.error('[DELETE /entries] Error deleting entry:', error);
+    console.error('[DELETE /entries] Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to delete entry', details: error.message });
   }
 });
 

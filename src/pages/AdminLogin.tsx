@@ -247,13 +247,13 @@ const AdminLogin = () => {
             <h3 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials:</h3>
             <div className="text-xs text-blue-700 space-y-1">
               <div><strong>Super Admin:</strong></div>
-              <div>Company: microsyslogic (fixed)</div>
+              <div>Company: microsyslogic</div>
               <div>Email: super_admin@microsyslogic.com</div>
               <div>Password: super_admin_password</div>
               <div className="mt-2"><strong>Plant Admin:</strong></div>
-              <div>Company: [Check backend companies]</div>
-              <div>Email: [Admin email from company]</div>
-              <div>Password: [Admin password from company]</div>
+              <div>Company: google</div>
+              <div>Email: rakesh@gmail.com</div>
+              <div>Password: rakesh123</div>
             </div>
           </div>
         </div>

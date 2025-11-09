@@ -329,12 +329,12 @@ const UnifiedLogin = () => {
               <div>Password: rakesh123</div>
               <div className="mt-2"><strong>Management (role: management):</strong></div>
               <div>Company: google</div>
-              <div>Email: trishul@gmail.com</div>
-              <div>Password: PB8sHemUglAA</div>
+              <div>Email: managementtrishul@gmail.com</div>
+              <div>Password: E4lTNFdHMO72</div>
               <div className="mt-2"><strong>Technician (role: technician):</strong></div>
               <div>Company: google</div>
-              <div>Email: trishulg@gmail.com</div>
-              <div>Password: oRJuulT76zY1</div>
+              <div>Email: trishul@gmail.com</div>
+              <div>Password: ZKoV3UolQ9wQ</div>
               <div className="mt-2"><strong>Super Admin (role: admin):</strong></div>
               <div>Company: microsyslogic</div>
               <div>Email: super_admin@microsyslogic.com</div>

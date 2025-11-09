@@ -11,6 +11,7 @@ import { getTablesByCompany } from '@/lib/data';
 import { getCompanies } from '@/lib/auth';
 import { PlantDetails, getPlantDetails, deleteTableFromPlant } from '@/lib/realFileSystem';
 import { useToast } from '@/hooks/use-toast';
+import GradientHeading from '@/components/ui/GradientHeading';
  
 
 const Infrastructure = () => {
@@ -267,9 +268,9 @@ const Infrastructure = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <div className="w-full">
       {!isEmbedded && (
-        <header className="glass-header sticky top-0 z-10">
+        <header className="glass-header sticky top-0 z-10 mb-6">
           <div className="container mx-auto px-4 py-4">
             <Button
               variant="ghost"
@@ -284,16 +285,16 @@ const Infrastructure = () => {
         </header>
       )}
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
+      <main className="w-full space-y-6">
         {/* Plant Details */}
-        <Card className="card-modern">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+        <Card className="card-modern shadow-md border border-gray-200/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
               <Zap className="h-5 w-5 text-primary" />
               Plant Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-2">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Plant Power</p>
               <p className="text-2xl font-bold text-primary">{company.plantPowerKW} kW</p>
@@ -318,7 +319,7 @@ const Infrastructure = () => {
           <Button
             variant="outline"
             onClick={() => navigate('/add-table')}
-            className="w-full h-20 text-lg rounded-3xl px-6 border-[3px] md:border-[4px] border-primary text-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="w-full h-16 text-base font-medium rounded-xl px-6 border-2 border-primary text-primary hover:bg-primary/10 hover:border-primary/80 focus-visible:ring-2 focus-visible:ring-primary/40 transition-all duration-200"
           >
             <Plus className="mr-2 h-5 w-5" />
             Add New Table
@@ -327,7 +328,7 @@ const Infrastructure = () => {
           <Button
             variant="outline"
             onClick={() => navigate('/plant-monitor')}
-            className="w-full h-20 text-lg rounded-3xl px-6 border-[3px] md:border-[4px] border-primary text-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="w-full h-16 text-base font-medium rounded-xl px-6 border-2 border-primary text-primary hover:bg-primary/10 hover:border-primary/80 focus-visible:ring-2 focus-visible:ring-primary/40 transition-all duration-200"
           >
             <Eye className="mr-2 h-5 w-5" />
             View Tables & Panels
@@ -336,20 +337,20 @@ const Infrastructure = () => {
 
         {/* Actions for selected table */}
         {selectedTable && (
-          <Card className="card-modern">
+          <Card className="card-modern shadow-md border border-gray-200/50">
             <CardContent className="pt-6">
               <div className="flex flex-wrap gap-3 items-center justify-between">
-                <div className="font-semibold text-primary">
-                  Selected: {selectedTable.serialNumber}
+                <div className="font-semibold text-primary text-lg">
+                  Selected: <span className="font-mono">{selectedTable.serialNumber}</span>
                 </div>
-                <div className="flex gap-3">
-                  <Button onClick={goToEditPage} className="gradient-primary">
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={goToEditPage} className="gradient-primary shadow-sm">
                     <Edit className="mr-2 h-4 w-4" /> Edit
                   </Button>
-                  <Button onClick={openDelete} variant="destructive">
+                  <Button onClick={openDelete} variant="destructive" className="shadow-sm">
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </Button>
-                  <Button variant="outline" onClick={() => setSelectedTable(null)}>
+                  <Button variant="outline" onClick={() => setSelectedTable(null)} className="shadow-sm">
                     <X className="mr-2 h-4 w-4" /> Deselect
                   </Button>
                 </div>
@@ -360,28 +361,28 @@ const Infrastructure = () => {
 
         {/* All Tables Overview */}
         {tables.length > 0 && (
-          <Card className="card-modern">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="card-modern shadow-md border border-gray-200/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl">
                 <Activity className="h-5 w-5 text-primary" />
                 All Tables Overview
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300">
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr className="bg-gray-100 border-b-2 border-gray-400">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Table No</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Top Row Panels</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Bottom Row Panels</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Voltage per Panel</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">Current per Panel</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300">
+                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Table No</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Top Row Panels</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Bottom Row Panels</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Voltage per Panel</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Current per Panel</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">
                         <div className="flex items-center gap-2">
                           Max Power Generating
                           <Select value={powerUnit} onValueChange={(value: 'W' | 'kW' | 'MW') => setPowerUnit(value)}>
-                            <SelectTrigger className="w-20 h-8">
+                            <SelectTrigger className="w-20 h-8 border-gray-300">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -392,7 +393,7 @@ const Infrastructure = () => {
                           </Select>
                         </div>
                       </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-800">Total Panels</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800">Total Panels</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -412,17 +413,21 @@ const Infrastructure = () => {
                         <tr
                           key={table.id}
                           onClick={() => onRowClick(table)}
-                          className={`border-b border-gray-200 cursor-pointer ${
-                            selectedTable?.id === table.id ? 'bg-blue-100' : 'hover:bg-gray-50'
+                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${
+                            selectedTable?.id === table.id 
+                              ? 'bg-blue-50 hover:bg-blue-100' 
+                              : 'hover:bg-gray-50'
                           }`}
                         >
-                          <td className="py-3 px-4 font-medium text-primary border-r border-gray-200">{displaySerial}</td>
-                          <td className="py-3 px-4 border-r border-gray-200">{topPanelsCount}</td>
-                          <td className="py-3 px-4 border-r border-gray-200">{bottomPanelsCount}</td>
-                          <td className="py-3 px-4 border-r border-gray-200">{voltagePerPanel}V</td>
-                          <td className="py-3 px-4 border-r border-gray-200">{currentPerPanel}A</td>
-                          <td className="py-3 px-4 font-semibold text-green-600 border-r border-gray-200">{convertPower(maxTotalPower)}</td>
-                          <td className="py-3 px-4 font-medium">{totalPanels}</td>
+                          <td className="py-4 px-4 font-medium text-primary border-r border-gray-200">
+                            <span className="font-mono font-semibold">{displaySerial}</span>
+                          </td>
+                          <td className="py-4 px-4 border-r border-gray-200">{topPanelsCount}</td>
+                          <td className="py-4 px-4 border-r border-gray-200">{bottomPanelsCount}</td>
+                          <td className="py-4 px-4 border-r border-gray-200">{voltagePerPanel}V</td>
+                          <td className="py-4 px-4 border-r border-gray-200">{currentPerPanel}A</td>
+                          <td className="py-4 px-4 font-semibold text-green-600 border-r border-gray-200">{convertPower(maxTotalPower)}</td>
+                          <td className="py-4 px-4 font-medium">{totalPanels}</td>
                         </tr>
                       );
                     })}
@@ -435,18 +440,18 @@ const Infrastructure = () => {
 
         {/* Empty State */}
         {tables.length === 0 && (
-          <Card className="card-modern">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="card-modern shadow-md border border-gray-200/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl">
                 <Activity className="h-5 w-5 text-primary" />
                 All Tables Overview
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg font-medium">No tables found</p>
-                <p className="text-sm">Create your first table to get started</p>
+              <div className="text-center py-12 text-gray-500">
+                <Activity className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-semibold mb-2">No tables found</p>
+                <p className="text-sm text-gray-400">Create your first table to get started</p>
               </div>
             </CardContent>
           </Card>
