@@ -92,21 +92,25 @@ const ExistingStaffMembers = ({ embedded = false }: { embedded?: boolean }) => {
             } else {
               // Fallback: build entries from technicians and management so UI is not empty
               try {
-                const [techResp, mgmtResp] = await Promise.all([
+                const [techResp, mgmtResp, entriesResp] = await Promise.all([
                   fetch(`${API_BASE_URL}/companies/${resolvedCompanyId}/technicians`).catch(() => null),
                   fetch(`${API_BASE_URL}/companies/${resolvedCompanyId}/management`).catch(() => null),
+                  fetch(`${API_BASE_URL}/companies/${resolvedCompanyId}/entries`).catch(() => null),
                 ]);
                 const technicians = techResp && techResp.ok ? await techResp.json() : [];
                 const management = mgmtResp && mgmtResp.ok ? await mgmtResp.json() : [];
+                const entriesFromApi = entriesResp && entriesResp.ok ? await entriesResp.json() : [];
                 const asArray = (x: any) => (Array.isArray(x) ? x : []);
                 const combine = [...asArray(technicians), ...asArray(management)];
+                const entriesByEmail: Record<string, any> = {};
+                asArray(entriesFromApi).forEach((e: any) => { if (e?.email) entriesByEmail[e.email] = e; });
                 const synthesized = combine.map((t: any) => ({
-                  id: t.id || `${t.role || 'user'}-${t.email}`,
+                  id: (entriesByEmail[t.email]?.id) || t.id || `${t.role || 'user'}-${t.email}`,
                   companyName: String(user.companyName || ''),
                   name: t.name || t.email?.split('@')[0] || (t.role === 'management' ? 'Management' : 'Technician'),
                   role: (t.role || 'technician') as 'management' | 'admin' | 'technician',
                   email: t.email,
-                  phoneNumber: t.phoneNumber || '',
+                  phoneNumber: t.phoneNumber || entriesByEmail[t.email]?.phoneNumber || '',
                   createdAt: t.createdAt || new Date().toISOString(),
                   createdBy: t.createdBy || (user?.email || ''),
                 }));
@@ -316,7 +320,7 @@ const ExistingStaffMembers = ({ embedded = false }: { embedded?: boolean }) => {
                           </Badge>
                         </td>
                         <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.email}</td>
-                        <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.phoneNumber}</td>
+                        <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.phoneNumber || 'N/A'}</td>
                         <td className={`py-3 px-4 whitespace-nowrap ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-600'}`}>
                           {new Date(entry.createdAt).toLocaleDateString('en-US', { 
                             year: 'numeric', 

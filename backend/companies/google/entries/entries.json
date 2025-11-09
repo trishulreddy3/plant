@@ -25,7 +25,7 @@
     "name": "janani",
     "role": "technician",
     "email": "janani@gmail.com",
-    "phoneNumber": "123456789032",
+    "phoneNumber": "+917013801816 ",
     "createdAt": "2025-10-26T09:47:32.223Z",
     "createdBy": "rakesh@gmail.com"
   },
@@ -35,7 +35,7 @@
     "name": "barnali",
     "role": "technician",
     "email": "barnali@gmail.com",
-    "phoneNumber": "12345678903",
+    "phoneNumber": "523145849645",
     "createdAt": "2025-10-26T09:56:04.014Z",
     "createdBy": "rakesh@gmail.com"
   },
@@ -58,5 +58,25 @@
     "phoneNumber": "12345678903",
     "createdAt": "2025-10-26T11:21:28.285Z",
     "createdBy": "rakesh@gmail.com"
+  },
+  {
+    "id": "entry-1762671676335",
+    "companyName": "google",
+    "name": "dd",
+    "role": "management",
+    "email": "dd@d",
+    "phoneNumber": "+917013801816 ",
+    "createdAt": "2025-11-09T07:01:16.335Z",
+    "createdBy": "system"
+  },
+  {
+    "id": "entry-1762671692247",
+    "companyName": "google",
+    "name": "harsha",
+    "role": "technician",
+    "email": "harsha@gmail.com",
+    "phoneNumber": "7386986921",
+    "createdAt": "2025-11-09T07:01:32.247Z",
+    "createdBy": "system"
   }
 ]

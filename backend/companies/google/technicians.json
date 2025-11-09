@@ -5,7 +5,8 @@
     "password": "oRJuulT76zY1",
     "role": "technician",
     "createdAt": "2025-10-26T06:53:21.002Z",
-    "createdBy": "rakesh@gmail.com"
+    "createdBy": "rakesh@gmail.com",
+    "phoneNumber": "7386986921"
   },
   {
     "id": "user-1761472052223",
@@ -13,7 +14,8 @@
     "password": "8r2aCHL2MARz",
     "role": "technician",
     "createdAt": "2025-10-26T09:47:32.223Z",
-    "createdBy": "rakesh@gmail.com"
+    "createdBy": "rakesh@gmail.com",
+    "phoneNumber": "+917013801816 "
   },
   {
     "id": "user-1761472564014",
@@ -21,6 +23,7 @@
     "password": "bJCrIiHPpKUr",
     "role": "technician",
     "createdAt": "2025-10-26T09:56:04.014Z",
-    "createdBy": "rakesh@gmail.com"
+    "createdBy": "rakesh@gmail.com",
+    "phoneNumber": "523145849645"
   }
 ]

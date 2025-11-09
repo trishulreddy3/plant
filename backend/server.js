@@ -138,6 +138,7 @@ app.get('/api/companies/:companyId/management', async (req, res) => {
     // Sanitize and then read management
     await sanitizeCompanyUsers(companyPath);
     const managementPath = path.join(companyPath, 'management.json');
+    const entriesPath = path.join(companyPath, 'entries', 'entries.json');
     let management = [];
     try {
       const mgmtData = await fs.readFile(managementPath, 'utf8');
@@ -147,7 +148,22 @@ app.get('/api/companies/:companyId/management', async (req, res) => {
       management = [];
     }
     management = management.filter(m => m && m.role === 'management');
-    res.json(management);
+
+    // Enrich with phone numbers from entries.json
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+      if (!Array.isArray(entries)) entries = [];
+    } catch (_) { entries = []; }
+    const byEmail = {};
+    entries.forEach(e => { if (e && e.email) byEmail[e.email] = e; });
+    const enriched = management.map(m => ({
+      ...m,
+      phoneNumber: m.phoneNumber || byEmail[m.email]?.phoneNumber || '',
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error('Error reading management:', error);
     res.json([]);
@@ -473,11 +489,23 @@ async function findCompanyFolder(companyId) {
       const companyPath = path.join(COMPANIES_DIR, folderName);
       const stat = await fs.stat(companyPath);
       if (stat.isDirectory()) {
+        // Direct match on folder name for convenience (case-sensitive)
+        if (folderName === companyId) {
+          return companyPath;
+        }
         const plantDetailsPath = path.join(companyPath, 'plant_details.json');
         try {
           const plantData = await fs.readFile(plantDetailsPath, 'utf8');
           const plant = JSON.parse(plantData);
+          // Match by stored companyId
           if (plant.companyId === companyId) {
+            return companyPath;
+          }
+          // Also allow matching by companyName (case-insensitive)
+          if (
+            typeof plant.companyName === 'string' &&
+            plant.companyName.trim().toLowerCase() === String(companyId).trim().toLowerCase()
+          ) {
             return companyPath;
           }
         } catch (error) {
@@ -1050,8 +1078,22 @@ app.get('/api/companies/:companyId/technicians', async (req, res) => {
     let technicians = JSON.parse(techniciansData.trim());
     if (!Array.isArray(technicians)) technicians = [];
     technicians = technicians.filter(t => t && t.role === 'technician');
+
+    // Enrich with phone numbers from entries.json
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+      if (!Array.isArray(entries)) entries = [];
+    } catch (_) { entries = []; }
+    const byEmail = {};
+    entries.forEach(e => { if (e && e.email) byEmail[e.email] = e; });
+    const enriched = technicians.map(t => ({
+      ...t,
+      phoneNumber: t.phoneNumber || byEmail[t.email]?.phoneNumber || '',
+    }));
     
-    res.json(technicians);
+    res.json(enriched);
   } catch (error) {
     console.error('Error reading technicians:', error);
     // Return empty array if technicians.json is corrupted instead of 500 error
@@ -1072,7 +1114,7 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
     }
     
     // Create entries folder if it doesn't exist
-    const entriesFolder = path.join(companyPath, 'entries');
+    let entriesFolder = path.join(companyPath, 'entries');
     try {
       await fs.access(entriesFolder);
     } catch (error) {
@@ -1094,13 +1136,14 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
     }
     
     // Create new staff entry (without password)
+    const timestamp = Date.now();
     const newEntry = {
-      id: `entry-${Date.now()}`,
-      companyName,
-      name,
-      role,
-      email,
-      phoneNumber,
+      id: `entry-${timestamp}`,
+      companyName: companyName || '',
+      name: name || '',
+      role: role || 'technician',
+      email: email || '',
+      phoneNumber: phoneNumber || '',
       createdAt: new Date().toISOString(),
       createdBy: createdBy || 'super_admin'
     };
@@ -1110,10 +1153,11 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
     
     // Create credential entry with password
     const newCredential = {
-      id: `user-${Date.now()}`,
-      email,
-      password,
-      role,
+      id: `user-${timestamp}`,
+      email: email || '',
+      password: password || '',
+      role: role || 'technician',
+      phoneNumber: phoneNumber || '',
       createdAt: new Date().toISOString(),
       createdBy: createdBy || 'super_admin'
     };
@@ -1139,11 +1183,21 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
       try {
         const managementFileData = await fs.readFile(managementPath, 'utf8');
         managementData = JSON.parse(managementFileData.trim());
+        if (!Array.isArray(managementData)) managementData = [];
       } catch (error) {
         managementData = [];
       }
       
-      managementData.push(newCredential);
+      // Check if user already exists by email
+      const existingIndex = managementData.findIndex(m => m && m.email === email);
+      if (existingIndex !== -1) {
+        // Update existing entry
+        managementData[existingIndex] = { ...managementData[existingIndex], ...newCredential };
+      } else {
+        // Add new entry
+        managementData.push(newCredential);
+      }
+      
       await fs.writeFile(managementPath, JSON.stringify(managementData, null, 2));
       
     } else if (role === 'technician') {
@@ -1152,16 +1206,29 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
       try {
         const techniciansData = await fs.readFile(techniciansPath, 'utf8');
         technicians = JSON.parse(techniciansData.trim());
+        if (!Array.isArray(technicians)) technicians = [];
       } catch (error) {
         technicians = [];
       }
       
-      technicians.push(newCredential);
+      // Check if user already exists by email
+      const existingIndex = technicians.findIndex(t => t && t.email === email);
+      if (existingIndex !== -1) {
+        // Update existing entry
+        technicians[existingIndex] = { ...technicians[existingIndex], ...newCredential };
+      } else {
+        // Add new entry
+        technicians.push(newCredential);
+      }
+      
       await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2));
     }
     
+    // Ensure entries folder exists (already created above)
     // Write entries.json
     await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+    console.log(`[POST /entries] Created entry with ID: ${newEntry.id} for email: ${email}`);
+    
     // Final sanity pass to keep files clean
     await sanitizeCompanyUsers(companyPath);
     
@@ -1171,6 +1238,144 @@ app.post('/api/companies/:companyId/entries', async (req, res) => {
     res.status(500).json({ error: 'Failed to add staff entry' });
   }
 });
+
+// Helper: Sync entries from role-specific files to entries.json
+async function syncEntriesFromRoleFiles(companyPath) {
+  try {
+    const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
+    const managementPath = path.join(companyPath, 'management.json');
+    const adminPath = path.join(companyPath, 'admin.json');
+
+    // Read existing entries
+    let entries = [];
+    try {
+      const entriesData = await fs.readFile(entriesPath, 'utf8');
+      entries = JSON.parse(entriesData.trim());
+      if (!Array.isArray(entries)) entries = [];
+    } catch (_) {
+      entries = [];
+    }
+
+    // Read role-specific files
+    let technicians = [];
+    let management = [];
+    let admin = null;
+    try { technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim()); } catch (_) { technicians = []; }
+    try { management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim()); } catch (_) { management = []; }
+    try { admin = JSON.parse((await fs.readFile(adminPath, 'utf8')).trim()); } catch (_) { admin = null; }
+
+    if (!Array.isArray(technicians)) technicians = [];
+    if (!Array.isArray(management)) management = [];
+
+    // Create a map of existing entries by email+role
+    const existingEntriesMap = new Map();
+    entries.forEach(e => {
+      if (e && e.email && e.role) {
+        existingEntriesMap.set(`${e.email}|${e.role}`, e);
+      }
+    });
+
+    let hasChanges = false;
+
+    // Sync technicians
+    for (const tech of technicians) {
+      if (tech && tech.email && tech.role === 'technician') {
+        const key = `${tech.email}|technician`;
+        if (!existingEntriesMap.has(key)) {
+          // Create entry from technician data
+          const newEntry = {
+            id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            companyName: tech.companyName || '',
+            name: tech.name || tech.email.split('@')[0],
+            role: 'technician',
+            email: tech.email,
+            phoneNumber: tech.phoneNumber || '',
+            createdAt: tech.createdAt || new Date().toISOString(),
+            createdBy: tech.createdBy || 'system'
+          };
+          entries.push(newEntry);
+          existingEntriesMap.set(key, newEntry);
+          hasChanges = true;
+        } else {
+          // Update phone number if missing in entry but present in technician
+          const existing = existingEntriesMap.get(key);
+          if (existing && !existing.phoneNumber && tech.phoneNumber) {
+            existing.phoneNumber = tech.phoneNumber;
+            hasChanges = true;
+          }
+        }
+      }
+    }
+
+    // Sync management
+    for (const mgmt of management) {
+      if (mgmt && mgmt.email && mgmt.role === 'management') {
+        const key = `${mgmt.email}|management`;
+        if (!existingEntriesMap.has(key)) {
+          // Create entry from management data
+          const newEntry = {
+            id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            companyName: mgmt.companyName || '',
+            name: mgmt.name || mgmt.email.split('@')[0],
+            role: 'management',
+            email: mgmt.email,
+            phoneNumber: mgmt.phoneNumber || '',
+            createdAt: mgmt.createdAt || new Date().toISOString(),
+            createdBy: mgmt.createdBy || 'system'
+          };
+          entries.push(newEntry);
+          existingEntriesMap.set(key, newEntry);
+          hasChanges = true;
+        } else {
+          // Update phone number if missing in entry but present in management
+          const existing = existingEntriesMap.get(key);
+          if (existing && !existing.phoneNumber && mgmt.phoneNumber) {
+            existing.phoneNumber = mgmt.phoneNumber;
+            hasChanges = true;
+          }
+        }
+      }
+    }
+
+    // Sync admin (if exists and not in entries)
+    if (admin && admin.email) {
+      const key = `${admin.email}|admin`;
+      if (!existingEntriesMap.has(key)) {
+        const newEntry = {
+          id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          companyName: admin.companyName || '',
+          name: admin.name || 'Admin',
+          role: 'admin',
+          email: admin.email,
+          phoneNumber: admin.phoneNumber || '',
+          createdAt: admin.createdAt || new Date().toISOString(),
+          createdBy: admin.createdBy || 'system'
+        };
+        entries.push(newEntry);
+        hasChanges = true;
+      }
+    }
+
+    // Write back if changes were made
+    if (hasChanges) {
+      // Ensure entries folder exists
+      const entriesFolder = path.join(companyPath, 'entries');
+      try {
+        await fs.access(entriesFolder);
+      } catch (error) {
+        await fs.mkdir(entriesFolder, { recursive: true });
+      }
+      await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+      console.log(`[GET /entries] Synced ${entries.length} entries from role-specific files`);
+    }
+
+    return entries;
+  } catch (err) {
+    console.warn('syncEntriesFromRoleFiles warning:', err?.message || err);
+    return [];
+  }
+}
 
 // Get staff entries for a company
 app.get('/api/companies/:companyId/entries', async (req, res) => {
@@ -1183,16 +1388,73 @@ app.get('/api/companies/:companyId/entries', async (req, res) => {
     }
     
     const entriesPath = path.join(companyPath, 'entries', 'entries.json');
+    const techniciansPath = path.join(companyPath, 'technicians.json');
+    const managementPath = path.join(companyPath, 'management.json');
     
     try {
-      // Sanitize entries before returning
+      // First, sync entries from role-specific files to entries.json
+      let entries = await syncEntriesFromRoleFiles(companyPath);
+      
+      // Then sanitize to remove entries that don't exist in role files
       await sanitizeCompanyEntries(companyPath);
-      const entriesData = await fs.readFile(entriesPath, 'utf8');
-      const entries = JSON.parse(entriesData.trim());
+      
+      // Re-read entries after sanitization
+      try {
+        const entriesData = await fs.readFile(entriesPath, 'utf8');
+        entries = JSON.parse(entriesData.trim());
+        if (!Array.isArray(entries)) entries = [];
+      } catch (error) {
+        entries = [];
+      }
+
+      // Enrich with phone numbers from role files if missing
+      let technicians = [];
+      let management = [];
+      try { 
+        technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim()); 
+        if (!Array.isArray(technicians)) technicians = [];
+      } catch (_) { technicians = []; }
+      try { 
+        management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim()); 
+        if (!Array.isArray(management)) management = [];
+      } catch (_) { management = []; }
+      
+      // Create a map of email -> phone number from role files
+      const phoneNumberMap = new Map();
+      [...technicians, ...management].forEach(u => {
+        if (u && u.email && u.phoneNumber) {
+          phoneNumberMap.set(u.email, u.phoneNumber);
+        }
+      });
+
+      // Enrich entries with phone numbers and ensure data consistency
+      if (Array.isArray(entries)) {
+        entries = entries.map(e => {
+          if (!e || !e.email || !e.role) return e;
+          
+          // Get phone number from role file if missing in entry
+          const phoneFromRole = phoneNumberMap.get(e.email);
+          const finalPhone = e.phoneNumber || phoneFromRole || '';
+          
+          return {
+            ...e,
+            phoneNumber: finalPhone,
+          };
+        }).filter(e => e && e.email && e.role); // Filter out invalid entries
+      }
+      
+      console.log(`[GET /entries] Returning ${entries.length} entries for company ${companyId}`);
       res.json(entries);
     } catch (error) {
-      // If entries.json doesn't exist, return empty array
-      res.json([]);
+      console.error('[GET /entries] Error:', error);
+      // If entries.json doesn't exist, try to sync from role files
+      try {
+        const entries = await syncEntriesFromRoleFiles(companyPath);
+        res.json(entries);
+      } catch (syncError) {
+        console.error('[GET /entries] Sync error:', syncError);
+        res.json([]);
+      }
     }
   } catch (error) {
     console.error('Error reading entries:', error);
@@ -1206,9 +1468,12 @@ app.put('/api/companies/:companyId/entries/:entryId', async (req, res) => {
     const { companyId, entryId } = req.params;
     const { companyName, name, role, email, phoneNumber } = req.body;
     
+    console.log(`[PUT /entries] Updating entry - companyId: ${companyId}, entryId: ${entryId}, email: ${email}, role: ${role}`);
+    
     const companyPath = await findCompanyFolder(companyId);
     
     if (!companyPath) {
+      console.log(`[PUT /entries] Company not found: ${companyId}`);
       return res.status(404).json({ error: 'Company not found' });
     }
     
@@ -1219,33 +1484,220 @@ app.put('/api/companies/:companyId/entries/:entryId', async (req, res) => {
     try {
       const entriesData = await fs.readFile(entriesPath, 'utf8');
       entries = JSON.parse(entriesData.trim());
+      if (!Array.isArray(entries)) entries = [];
+      console.log(`[PUT /entries] Loaded ${entries.length} entries from entries.json`);
     } catch (error) {
-      return res.status(404).json({ error: 'No entries found' });
+      console.log(`[PUT /entries] No entries.json found, creating new array`);
+      entries = [];
     }
     
     // Find and update the entry
-    const entryIndex = entries.findIndex(e => e.id === entryId);
+    let entryIndex = entries.findIndex(e => e && e.id === entryId);
+    
     if (entryIndex === -1) {
-      return res.status(404).json({ error: 'Entry not found' });
+      console.log(`[PUT /entries] Entry ID ${entryId} not found, trying fallback methods...`);
+      
+      // Compatibility: if a user-* id was sent, try resolving by email+role
+      if (email && role) {
+        console.log(`[PUT /entries] Trying to find entry by email: ${email}, role: ${role}`);
+        const altIndex = entries.findIndex(e => e && e.email === email && e.role === role);
+        if (altIndex !== -1) {
+          console.log(`[PUT /entries] Found entry at index ${altIndex} by email+role`);
+          entryIndex = altIndex;
+        } else {
+          // Try to find in role-specific files and sync to entries.json
+          console.log(`[PUT /entries] Entry not found in entries.json, checking role-specific files...`);
+          const techniciansPath = path.join(companyPath, 'technicians.json');
+          const managementPath = path.join(companyPath, 'management.json');
+          const adminPath = path.join(companyPath, 'admin.json');
+          
+          let foundInRoleFile = false;
+          
+          if (role === 'technician') {
+            try {
+              const technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim());
+              const tech = Array.isArray(technicians) ? technicians.find(t => t && t.email === email) : null;
+              if (tech) {
+                foundInRoleFile = true;
+                console.log(`[PUT /entries] Found technician in technicians.json, creating entry in entries.json`);
+              }
+            } catch (e) { /* ignore */ }
+          } else if (role === 'management') {
+            try {
+              const management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim());
+              const mgmt = Array.isArray(management) ? management.find(m => m && m.email === email) : null;
+              if (mgmt) {
+                foundInRoleFile = true;
+                console.log(`[PUT /entries] Found management in management.json, creating entry in entries.json`);
+              }
+            } catch (e) { /* ignore */ }
+          } else if (role === 'admin') {
+            try {
+              const admin = JSON.parse((await fs.readFile(adminPath, 'utf8')).trim());
+              if (admin && admin.email === email) {
+                foundInRoleFile = true;
+                console.log(`[PUT /entries] Found admin in admin.json, creating entry in entries.json`);
+              }
+            } catch (e) { /* ignore */ }
+          }
+          
+          if (foundInRoleFile) {
+            // Create new entry in entries.json
+            const newEntry = {
+              id: `entry-${Date.now()}`,
+              companyName: companyName || '',
+              name: name || '',
+              role: role,
+              email: email,
+              phoneNumber: phoneNumber || '',
+              createdAt: new Date().toISOString(),
+              createdBy: 'system'
+            };
+            entries.push(newEntry);
+            entryIndex = entries.length - 1;
+            console.log(`[PUT /entries] Created new entry with ID: ${newEntry.id}`);
+          } else {
+            console.log(`[PUT /entries] Entry not found in any file`);
+            return res.status(404).json({ error: 'Entry not found' });
+          }
+        }
+      } else {
+        console.log(`[PUT /entries] Cannot resolve entry - missing email or role in request body`);
+        return res.status(404).json({ error: 'Entry not found. Email and role are required for lookup.' });
+      }
+    } else {
+      console.log(`[PUT /entries] Found entry at index ${entryIndex}`);
     }
     
-    // Update the entry
+    // Update the entry - preserve all original fields and update only provided fields
+    const originalEntry = entries[entryIndex];
     entries[entryIndex] = {
-      ...entries[entryIndex],
-      companyName,
-      name,
-      role,
-      email,
-      phoneNumber,
+      ...originalEntry, // Preserve all original fields (id, createdAt, createdBy, etc.)
+      // Update only the fields that are provided in the request
+      ...(companyName !== undefined && { companyName }),
+      ...(name !== undefined && { name }),
+      ...(role !== undefined && { role }),
+      ...(email !== undefined && { email }),
+      ...(phoneNumber !== undefined && { phoneNumber }),
     };
     
-    // Write back to file
-    await fs.writeFile(entriesPath, JSON.stringify(entries, null, 2));
+    console.log(`[PUT /entries] Updated entry:`, JSON.stringify(entries[entryIndex], null, 2));
+    
+    // Ensure entries folder exists
+    const entriesFolder = path.join(companyPath, 'entries');
+    try {
+      await fs.access(entriesFolder);
+    } catch (error) {
+      await fs.mkdir(entriesFolder, { recursive: true });
+    }
+    
+    // Write back to file with proper formatting
+    const entriesJson = JSON.stringify(entries, null, 2);
+    await fs.writeFile(entriesPath, entriesJson, 'utf8');
+    console.log(`[PUT /entries] Successfully wrote ${entries.length} entries to entries.json`);
+    
+    // Verify the write by reading it back
+    try {
+      const verifyData = await fs.readFile(entriesPath, 'utf8');
+      const verifyEntries = JSON.parse(verifyData.trim());
+      console.log(`[PUT /entries] Verification: File contains ${verifyEntries.length} entries`);
+    } catch (verifyError) {
+      console.error(`[PUT /entries] Warning: Could not verify write:`, verifyError);
+    }
+    
+    // Also update the role-specific file if needed
+    const updatedEntry = entries[entryIndex];
+    if (updatedEntry.role === 'technician') {
+      try {
+        const techniciansPath = path.join(companyPath, 'technicians.json');
+        let technicians = [];
+        try {
+          technicians = JSON.parse((await fs.readFile(techniciansPath, 'utf8')).trim());
+          if (!Array.isArray(technicians)) technicians = [];
+        } catch (e) { 
+          console.log(`[PUT /entries] Could not read technicians.json:`, e);
+          technicians = []; 
+        }
+        
+        const techIndex = technicians.findIndex(t => t && t.email === updatedEntry.email);
+        if (techIndex !== -1) {
+          technicians[techIndex] = {
+            ...technicians[techIndex],
+            email: updatedEntry.email,
+            role: updatedEntry.role,
+            phoneNumber: updatedEntry.phoneNumber,
+            name: updatedEntry.name || technicians[techIndex].name
+          };
+          await fs.writeFile(techniciansPath, JSON.stringify(technicians, null, 2), 'utf8');
+          console.log(`[PUT /entries] Updated technician in technicians.json`);
+        } else {
+          console.log(`[PUT /entries] Technician not found in technicians.json for email: ${updatedEntry.email}`);
+        }
+      } catch (e) { 
+        console.error(`[PUT /entries] Error updating technicians.json:`, e);
+      }
+    } else if (updatedEntry.role === 'management') {
+      try {
+        const managementPath = path.join(companyPath, 'management.json');
+        let management = [];
+        try {
+          management = JSON.parse((await fs.readFile(managementPath, 'utf8')).trim());
+          if (!Array.isArray(management)) management = [];
+        } catch (e) { 
+          console.log(`[PUT /entries] Could not read management.json:`, e);
+          management = []; 
+        }
+        
+        const mgmtIndex = management.findIndex(m => m && m.email === updatedEntry.email);
+        if (mgmtIndex !== -1) {
+          management[mgmtIndex] = {
+            ...management[mgmtIndex],
+            email: updatedEntry.email,
+            role: updatedEntry.role,
+            phoneNumber: updatedEntry.phoneNumber,
+            name: updatedEntry.name || management[mgmtIndex].name
+          };
+          await fs.writeFile(managementPath, JSON.stringify(management, null, 2), 'utf8');
+          console.log(`[PUT /entries] Updated management in management.json`);
+        } else {
+          console.log(`[PUT /entries] Management not found in management.json for email: ${updatedEntry.email}`);
+        }
+      } catch (e) { 
+        console.error(`[PUT /entries] Error updating management.json:`, e);
+      }
+    } else if (updatedEntry.role === 'admin') {
+      try {
+        const adminPath = path.join(companyPath, 'admin.json');
+        let admin = {};
+        try {
+          const adminData = await fs.readFile(adminPath, 'utf8');
+          admin = JSON.parse(adminData.trim());
+        } catch (e) { 
+          console.log(`[PUT /entries] Could not read admin.json:`, e);
+          admin = {}; 
+        }
+        
+        if (admin && admin.email === updatedEntry.email) {
+          admin = {
+            ...admin,
+            email: updatedEntry.email,
+            name: updatedEntry.name || admin.name,
+            phoneNumber: updatedEntry.phoneNumber || admin.phoneNumber
+          };
+          await fs.writeFile(adminPath, JSON.stringify(admin, null, 2), 'utf8');
+          console.log(`[PUT /entries] Updated admin in admin.json`);
+        } else {
+          console.log(`[PUT /entries] Admin not found in admin.json for email: ${updatedEntry.email}`);
+        }
+      } catch (e) { 
+        console.error(`[PUT /entries] Error updating admin.json:`, e);
+      }
+    }
     
     res.json({ success: true, entry: entries[entryIndex] });
   } catch (error) {
     console.error('Error updating entry:', error);
-    res.status(500).json({ error: 'Failed to update entry' });
+    res.status(500).json({ error: 'Failed to update entry', details: error.message });
   }
 });
 

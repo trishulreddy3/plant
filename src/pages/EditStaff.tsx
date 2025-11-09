@@ -93,17 +93,31 @@ const EditStaff = () => {
     setError(null);
 
     try {
-      // Get companyId
+      // Resolve companyId and entryId robustly
       const companies = await getAllCompanies();
-      const company = companies.find(c => c.name === user.companyName);
-      
-      if (!company || !company.id) {
-        throw new Error('Company not found');
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://plant-9uk7.onrender.com/api');
+      let companyIdToUse = companies.find(c => c.name === user.companyName)?.id as string | undefined;
+      let entryIdToUse = entry.id;
+
+      // If id is not an entry-* or companyId doesn't work, scan all companies to find the matching entry by email+role
+      const candidates = companies.map(c => c.id).filter(Boolean) as string[];
+      for (const cid of candidates) {
+        try {
+          const resp = await fetch(`${API_BASE_URL}/companies/${cid}/entries`);
+          if (!resp.ok) continue;
+          const list: any[] = await resp.json();
+          const match = Array.isArray(list) ? list.find(e => e?.email === entry.email && e?.role === entry.role) : null;
+          if (match?.id && String(match.id).startsWith('entry-')) {
+            companyIdToUse = cid;
+            entryIdToUse = match.id;
+            break;
+          }
+        } catch (_) { /* skip */ }
       }
 
-      // Call update API
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://plant-9uk7.onrender.com/api');
-      const response = await fetch(`${API_BASE_URL}/companies/${company.id}/entries/${entry.id}`, {
+      if (!companyIdToUse) throw new Error('Company not found');
+
+      const response = await fetch(`${API_BASE_URL}/companies/${companyIdToUse}/entries/${entryIdToUse}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
