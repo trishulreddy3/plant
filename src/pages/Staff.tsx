@@ -57,10 +57,10 @@ const Staff = () => {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="list" className="mt-0">
-                <ExistingStaffMembers embedded />
+                <ExistingStaffMembers embedded onAddStaff={() => setTab('add')} />
               </TabsContent>
               <TabsContent value="add" className="mt-0">
-                <AddStaff embedded />
+                <AddStaff embedded onBack={() => setTab('list')} />
               </TabsContent>
             </Tabs>
           </CardContent>

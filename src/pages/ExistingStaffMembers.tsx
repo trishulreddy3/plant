@@ -21,7 +21,7 @@ interface StaffEntry {
   createdBy: string;
 }
 
-const ExistingStaffMembers = ({ embedded = false }: { embedded?: boolean }) => {
+const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boolean; onAddStaff?: () => void }) => {
   const navigate = useNavigate();
   const [user] = useState(getCurrentUser());
   const [staffEntries, setStaffEntries] = useState<StaffEntry[]>([]);
@@ -346,7 +346,13 @@ const ExistingStaffMembers = ({ embedded = false }: { embedded?: boolean }) => {
               <div className="text-center py-12">
                 <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground mb-4">No staff members registered yet</p>
-                <Button onClick={() => navigate('/add-staff')}>
+                <Button onClick={() => {
+                  if (embedded && onAddStaff) {
+                    onAddStaff();
+                  } else {
+                    navigate('/add-staff');
+                  }
+                }}>
                   Add First Staff Member
                 </Button>
               </div>
@@ -403,7 +409,13 @@ const ExistingStaffMembers = ({ embedded = false }: { embedded?: boolean }) => {
 
         {staffEntries.length > 0 && (
           <Button
-            onClick={() => navigate('/add-staff')}
+            onClick={() => {
+              if (embedded && onAddStaff) {
+                onAddStaff();
+              } else {
+                navigate('/add-staff');
+              }
+            }}
             className="w-full h-12 gradient-primary"
           >
             Add Another Staff Member

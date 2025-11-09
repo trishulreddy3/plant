@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,10 +11,14 @@ import { addStaffEntry } from '@/lib/realFileSystem';
 import { useToast } from '@/hooks/use-toast';
 import BackButton from '@/components/ui/BackButton';
 
-const AddStaff = ({ embedded = false }: { embedded?: boolean }) => {
+const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const user = getCurrentUser();
+  
+  // Check if we're in the plant admin dashboard context
+  const isInDashboard = location.pathname.includes('/plant-admin-dashboard') || embedded;
   const [formData, setFormData] = useState({
     companyName: '',
     name: '',
@@ -347,7 +351,18 @@ const AddStaff = ({ embedded = false }: { embedded?: boolean }) => {
                     Add Another Staff Entry
                   </Button>
                   <Button
-                    onClick={() => navigate('/existing-staff-members')}
+                    onClick={() => {
+                      if (embedded && onBack) {
+                        // Use callback to switch tabs within the same page
+                        onBack();
+                      } else if (isInDashboard) {
+                        // If in dashboard context, navigate to staff tab
+                        navigate('/plant-admin-dashboard/staff');
+                      } else {
+                        // Standalone page, navigate to existing staff members
+                        navigate('/existing-staff-members');
+                      }
+                    }}
                     variant="outline"
                     className="flex-1"
                   >
