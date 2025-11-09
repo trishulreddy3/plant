@@ -1,0 +1,89 @@
+.panel {
+  width: 24px;
+  height: 35px;
+  border: none;
+  border-radius: 3px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.panel:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.panel.editable {
+  cursor: pointer;
+  border: 2px solid #ff6b6b;
+  position: relative;
+}
+
+.panel.editable::after {
+  content: '×';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.panel.editable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.7) !important;
+  border-color: #e74c3c;
+}
+
+.panel.editable:hover::after {
+  opacity: 1;
+}
+
+.panel.normal {
+  /* Colors are now handled by inline styles based on health status */
+}
+
+.panel.fault {
+  /* Colors are now handled by inline styles based on health status */
+  animation: faultPulse 2s infinite;
+}
+
+@keyframes faultPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(231, 76, 60, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.8);
+  }
+}
+
+@keyframes faultPanelPulse {
+  0% {
+    transform: scale(1.3);
+    box-shadow: 0 0 15px rgba(231, 76, 60, 1);
+  }
+  50% {
+    transform: scale(1.4);
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.8);
+  }
+  100% {
+    transform: scale(1.3);
+    box-shadow: 0 0 15px rgba(231, 76, 60, 1);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .panel {
+    width: 20px;
+    height: 30px;
+  }
+}
