@@ -109,10 +109,10 @@ const TechnicianDashboard = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background relative">
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <BackButton />
       </div>
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-10 hidden sm:flex items-center gap-2">
         <div className="flex items-center gap-2 rounded-md border px-2 py-1 text-xs bg-card">
           <span className={
             'inline-block w-2.5 h-2.5 rounded-full ' +
@@ -128,7 +128,7 @@ const TechnicianDashboard = () => {
           <LogOut className="w-4 h-4 mr-2" /> Logout
         </Button>
       </div>
-      <div className="container mx-auto px-4 py-8 flex-1 overflow-hidden">
+      <div className="container mx-auto px-4 py-8 flex-1 overflow-auto">
         {/* Header text above tabs */}
         <div className="mb-4">
           <GradientHeading size="lg">Solar Panel Monitoring - {user.companyName?.toLowerCase()}</GradientHeading>
@@ -137,7 +137,7 @@ const TechnicianDashboard = () => {
         </div>
 
         <Tabs defaultValue="overall" className="w-full h-full flex flex-col">
-          <TabsList className="mb-6 grid grid-cols-2 gap-3 w-full bg-transparent p-0 sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-2">
+          <TabsList className="mb-6 grid grid-cols-2 gap-3 w-full bg-transparent p-0 sm:sticky sm:top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-2">
             <TabsTrigger 
               value="overall"
               className="w-full h-12 text-base rounded-xl border border-gray-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
@@ -152,16 +152,16 @@ const TechnicianDashboard = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overall" className="mt-6 h-full overflow-hidden">
+          <TabsContent value="overall" className="mt-6 min-h-0 overflow-auto">
             <UnifiedViewTables userRole="user" hideHeader={true} />
           </TabsContent>
 
-          <TabsContent value="defects" className="mt-6 h-full overflow-hidden">
+          <TabsContent value="defects" className="mt-6 min-h-0 overflow-auto">
             <Card className="glass-card h-full flex flex-col">
               <CardHeader className="sticky top-0 z-10 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
                 <CardTitle>View All Defects</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-hidden">
+              <CardContent className="flex-1 overflow-auto">
                 {/* Filters */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {LAZY_MODE && (

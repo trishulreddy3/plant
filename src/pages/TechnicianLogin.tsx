@@ -55,16 +55,14 @@ const TechnicianLogin = () => {
         });
         
         // Navigate to appropriate dashboard based on user role
-        setTimeout(() => {
-          if (result.user.role === 'super_admin') {
-            navigate('/super-admin-dashboard');
-          } else if (result.user.role === 'plant_admin') {
-            navigate('/plant-admin-dashboard');
-          } else {
-            // Technicians go directly to dashboard
-            navigate('/technician-dashboard');
-          }
-        }, 100);
+        if (result.user.role === 'super_admin') {
+          navigate('/super-admin-dashboard', { replace: true });
+        } else if (result.user.role === 'plant_admin') {
+          navigate('/plant-admin-dashboard', { replace: true });
+        } else {
+          // Technicians go directly to dashboard
+          navigate('/technician-dashboard', { replace: true });
+        }
       } else {
         toast({
           title: 'Login Failed',
@@ -134,7 +132,7 @@ const TechnicianLogin = () => {
         }
       `}</style>
       <div className="login-container">
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <BackButton />
       </div>
       <div className="w-full max-w-md">
@@ -148,11 +146,11 @@ const TechnicianLogin = () => {
 
         <div className="login-card">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 mb-6">
               <img 
                 src={logo} 
                 alt="Microsyslogic Logo" 
-                className="w-32 h-32 object-contain"
+                className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
                 onError={(e) => {
                   // Fallback to LogIn icon if logo fails to load
                   const target = e.currentTarget as HTMLImageElement;
@@ -161,7 +159,7 @@ const TechnicianLogin = () => {
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-green-500 to-blue-600 rounded-3xl shadow-lg shadow-green-500/25" style={{display: 'none'}}>
+              <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-green-500 to-blue-600 rounded-3xl shadow-lg shadow-green-500/25" style={{display: 'none'}}>
                 <LogIn className="w-16 h-16 text-white" />
               </div>
             </div>
@@ -247,8 +245,8 @@ const TechnicianLogin = () => {
           </form>
 
           <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-            <h3 className="text-sm font-semibold text-green-800 mb-2">Demo Credentials:</h3>
-            <div className="text-xs text-green-700 space-y-1">
+            <h3 className="text-sm sm:text-base font-semibold text-green-800 mb-2">Demo Credentials:</h3>
+            <div className="text-xs sm:text-sm text-green-700 space-y-1 break-words">
               <div><strong>Technicians:</strong></div>
               <div>Company: google</div>
               <div>Email: trishul@gmail.com</div>

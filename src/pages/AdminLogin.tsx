@@ -55,13 +55,11 @@ const AdminLogin = () => {
         });
         
         // Navigate to appropriate dashboard based on user role
-        setTimeout(() => {
-          if (result.user.role === 'super_admin') {
-            navigate('/super-admin-dashboard');
-          } else {
-            navigate('/plant-admin-dashboard');
-          }
-        }, 100);
+        if (result.user.role === 'super_admin') {
+          navigate('/super-admin-dashboard', { replace: true });
+        } else {
+          navigate('/plant-admin-dashboard', { replace: true });
+        }
       } else {
         toast({
           title: 'Login Failed',
@@ -131,7 +129,7 @@ const AdminLogin = () => {
         }
       `}</style>
       <div className="login-container">
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <BackButton />
       </div>
       <div className="w-full max-w-md">
@@ -145,11 +143,11 @@ const AdminLogin = () => {
 
         <div className="login-card">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-32 h-32 mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 mb-6">
               <img 
                 src={logo} 
                 alt="Microsyslogic Logo" 
-                className="w-32 h-32 object-contain"
+                className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
                 onError={(e) => {
                   // Fallback to LogIn icon if logo fails to load
                   const target = e.currentTarget as HTMLImageElement;
@@ -158,7 +156,7 @@ const AdminLogin = () => {
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-lg shadow-blue-500/25" style={{display: 'none'}}>
+              <div className="inline-flex items-center justify-center w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-lg shadow-blue-500/25" style={{display: 'none'}}>
                 <LogIn className="w-16 h-16 text-white" />
               </div>
             </div>
@@ -244,8 +242,8 @@ const AdminLogin = () => {
           </form>
 
           <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials:</h3>
-            <div className="text-xs text-blue-700 space-y-1">
+            <h3 className="text-sm sm:text-base font-semibold text-blue-800 mb-2">Demo Credentials:</h3>
+            <div className="text-xs sm:text-sm text-blue-700 space-y-1 break-words">
               <div><strong>Super Admin:</strong></div>
               <div>Company: microsyslogic</div>
               <div>Email: super_admin@microsyslogic.com</div>

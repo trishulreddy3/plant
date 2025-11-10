@@ -98,17 +98,15 @@ const UnifiedLogin = () => {
         });
         
         // Navigate to appropriate dashboard based on user role
-        setTimeout(() => {
-          if (result.user.role === 'super_admin') {
-            navigate('/super-admin-dashboard');
-          } else if (result.user.role === 'plant_admin') {
-            navigate('/plant-admin-dashboard');
-          } else if (result.user.role === 'technician') {
-            navigate('/technician-dashboard');
-          } else if (result.user.role === 'management') {
-            navigate('/management-dashboard');
-          }
-        }, 100);
+        if (result.user.role === 'super_admin') {
+          navigate('/super-admin-dashboard', { replace: true });
+        } else if (result.user.role === 'plant_admin') {
+          navigate('/plant-admin-dashboard', { replace: true });
+        } else if (result.user.role === 'technician') {
+          navigate('/technician-dashboard', { replace: true });
+        } else if (result.user.role === 'management') {
+          navigate('/management-dashboard', { replace: true });
+        }
       } else {
         toast({
           title: 'Login Failed',
@@ -188,7 +186,7 @@ const UnifiedLogin = () => {
       )}
       {(serverReady && !checkingServer) && (
       <div className="login-container">
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <BackButton />
       </div>
       <div className="w-full max-w-md">
@@ -202,11 +200,11 @@ const UnifiedLogin = () => {
 
         <div className="login-card">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-72 h-72 mb-6">
+            <div className="inline-flex items-center justify-center w-48 h-48 sm:w-72 sm:h-72 mb-6">
               <img 
                 src={logo} 
                 alt="Logo" 
-                className="w-72 h-72 object-contain"
+                className="w-48 h-48 sm:w-72 sm:h-72 object-contain"
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   const fallback = target.nextElementSibling as HTMLElement;
@@ -321,8 +319,8 @@ const UnifiedLogin = () => {
           </form>
 
           <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-            <h3 className="text-sm font-semibold text-green-800 mb-2">Demo Credentials:</h3>
-            <div className="text-xs text-green-700 space-y-1">
+            <h3 className="text-sm sm:text-base font-semibold text-green-800 mb-2">Demo Credentials:</h3>
+            <div className="text-xs sm:text-sm text-green-700 space-y-1 break-words">
               <div><strong>Plant Admin (role: admin):</strong></div>
               <div>Company: google</div>
               <div>Email: rakesh@gmail.com</div>
