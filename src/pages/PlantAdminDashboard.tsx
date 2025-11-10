@@ -100,7 +100,7 @@ const PlantAdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 hidden sm:block">
         <BackButton />
       </div>
       <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-20 shadow-sm">
@@ -132,7 +132,7 @@ const PlantAdminDashboard = () => {
           className="w-full"
         >
           {/* Tabs Navigation - Fixed positioning to prevent overlap */}
-          <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-[65px] z-10 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-14 sm:top-16 z-10 shadow-sm">
             <div className="container mx-auto px-4">
               <div className="flex items-center justify-center py-3">
                 <TabsList className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 shadow-inner border border-gray-200/50 gap-1">

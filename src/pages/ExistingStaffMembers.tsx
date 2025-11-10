@@ -224,7 +224,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
     <div className={embedded ? '' : "min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5"}>
       {!embedded && (
         <>
-          <div className="absolute top-4 left-4 z-10">
+          <div className="absolute top-4 left-4 z-10 hidden sm:block">
             <BackButton />
           </div>
           <header className="glass-header sticky top-0 z-10">
@@ -278,62 +278,91 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                 <p className="text-muted-foreground">Loading staff members...</p>
               </div>
             ) : filteredEntries.length > 0 ? (
-              <div className="overflow-x-auto">
-                <div className="border border-gray-200 rounded-lg max-h-[350px] overflow-y-auto">
-                  <table className="w-full border-collapse border border-gray-300">
-                    <thead className="sticky top-0 z-10">
-                      <tr className="bg-gray-100 border-b-2 border-gray-400">
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Company Name</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Staff Name</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Role</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Email</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Phone Number</th>
-                        <th className="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100">Joined Date</th>
-                      </tr>
-                    </thead>
-                  <tbody>
-                    {filteredEntries.map((entry, index) => (
-                      <tr 
-                        key={entry.id}
-                        onClick={() => handleRowClick(entry)}
-                        className={`cursor-pointer transition-all border-b border-gray-200 ${
-                          selectedEntry?.id === entry.id 
-                            ? 'bg-blue-700 text-white border-l-4 border-l-blue-900 shadow-lg' 
-                            : index % 2 === 0 
-                              ? 'bg-blue-50 hover:bg-blue-100' 
-                              : 'bg-blue-200 hover:bg-blue-300'
-                        }`}
-                      >
-                        <td className={`py-3 px-4 font-medium border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-900'}`}>{entry.companyName}</td>
-                        <td className={`py-3 px-4 border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.name}</td>
-                        <td className="py-3 px-4 border-r border-gray-200">
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              selectedEntry?.id === entry.id ? 'border-white text-white bg-white/20' :
-                              entry.role === 'management' ? 'border-green-600 text-green-700 bg-green-50' :
-                              entry.role === 'admin' ? 'border-purple-600 text-purple-700 bg-purple-50' :
-                              'border-blue-600 text-blue-700 bg-blue-50'
-                            }
-                          >
-                            {entry.role.charAt(0).toUpperCase() + entry.role.slice(1)}
-                          </Badge>
-                        </td>
-                        <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.email}</td>
-                        <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.phoneNumber || 'N/A'}</td>
-                        <td className={`py-3 px-4 whitespace-nowrap ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-600'}`}>
-                          {new Date(entry.createdAt).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  </table>
+              <>
+                <div className="grid gap-3 md:hidden">
+                  {filteredEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className={`rounded-lg border ${selectedEntry?.id === entry.id ? 'bg-blue-700 text-white border-blue-800' : 'bg-white border-gray-200'} p-4 shadow-sm`}
+                      onClick={() => handleRowClick(entry)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs text-gray-500 truncate">{entry.companyName}</div>
+                          <div className="font-semibold truncate">{entry.name}</div>
+                          <div className="text-xs capitalize mt-0.5 opacity-80">{entry.role}</div>
+                          <div className="text-xs break-all mt-1 opacity-90">{entry.email}</div>
+                          <div className="text-xs mt-0.5 opacity-90">{entry.phoneNumber || 'N/A'}</div>
+                        </div>
+                        <div className="shrink-0 flex flex-col gap-2">
+                          <Button size="sm" variant={selectedEntry?.id === entry.id ? 'secondary' : 'outline'} onClick={(e) => { e.stopPropagation(); navigate('/edit-staff', { state: { entry } }); }}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); setSelectedEntry(entry); setShowDeleteModal(true); setDeleteConfirmation(''); }}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+                <div className="hidden md:block overflow-x-auto">
+                  <div className="border border-gray-200 rounded-lg max-h-[350px] overflow-y-auto">
+                    <table className="w-full border-collapse border border-gray-300">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-gray-100 border-b-2 border-gray-400">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Company Name</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Staff Name</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Role</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Email</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 border-r border-gray-300 bg-gray-100">Phone Number</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-800 bg-gray-100">Joined Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredEntries.map((entry, index) => (
+                          <tr 
+                            key={entry.id}
+                            onClick={() => handleRowClick(entry)}
+                            className={`cursor-pointer transition-all border-b border-gray-200 ${
+                              selectedEntry?.id === entry.id 
+                                ? 'bg-blue-700 text-white border-l-4 border-l-blue-900 shadow-lg' 
+                                : index % 2 === 0 
+                                  ? 'bg-blue-50 hover:bg-blue-100' 
+                                  : 'bg-blue-200 hover:bg-blue-300'
+                            }`}
+                          >
+                            <td className={`py-3 px-4 font-medium border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-900'}`}>{entry.companyName}</td>
+                            <td className={`py-3 px-4 border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.name}</td>
+                            <td className="py-3 px-4 border-r border-gray-200">
+                              <Badge 
+                                variant="outline" 
+                                className={
+                                  selectedEntry?.id === entry.id ? 'border-white text-white bg-white/20' :
+                                  entry.role === 'management' ? 'border-green-600 text-green-700 bg-green-50' :
+                                  entry.role === 'admin' ? 'border-purple-600 text-purple-700 bg-purple-50' :
+                                  'border-blue-600 text-blue-700 bg-blue-50'
+                                }
+                              >
+                                {entry.role.charAt(0).toUpperCase() + entry.role.slice(1)}
+                              </Badge>
+                            </td>
+                            <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.email}</td>
+                            <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.phoneNumber || 'N/A'}</td>
+                            <td className={`py-3 px-4 whitespace-nowrap ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-600'}`}>
+                              {new Date(entry.createdAt).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             ) : searchQuery ? (
               <div className="text-center py-12">
                 <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
