@@ -7,7 +7,7 @@ import { LogOut, Building2, AlertCircle, AlertTriangle, Eye, Zap, Settings, User
 import { getCurrentUser, logout, getCompanies } from '@/lib/auth';
 import { getTablesByCompany, getPanelsByCompany, Panel } from '@/lib/data';
 import { getPlantDetails, getPanelHealthPercentage, getPanelStatus } from '@/lib/realFileSystem';
- 
+
 
 interface UnifiedDashboardProps {
   userRole: 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'user';
@@ -37,15 +37,15 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       navigate('/');
       return;
     }
-    
+
     // For super admin, use provided companyId or current user's companyId
     const targetCompanyId = userRole === 'super_admin' && companyId ? companyId : currentUser.companyId;
-    
+
     if (!targetCompanyId) {
       navigate('/');
       return;
     }
-    
+
     setUser({ ...currentUser, companyId: targetCompanyId });
   }, [navigate, userRole, companyId]);
 
@@ -65,7 +65,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
     } catch (error) {
       console.error('Error loading plant details:', error);
       setPlantDetails(null);
-      
+
       // Fallback to localStorage
       const companies = getCompanies();
       const selectedCompany = companies.find(c => c.id === user.companyId);
@@ -82,7 +82,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   useEffect(() => {
     if (user?.companyId) {
       loadData();
-      
+
       // Set up auto-refresh
       const interval = setInterval(loadData, 5000);
       return () => clearInterval(interval);
@@ -97,10 +97,10 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   // Function to get panel image based on realistic plant data
   const getPanelImage = (tableId: string, position: 'top' | 'bottom', panelIndex: number): string => {
     if (!plantDetails) return '/images/panels/image2.png';
-    
+
     const healthPercentage = getPanelHealthPercentage(plantDetails, tableId, position, panelIndex);
-    
-    if (healthPercentage >= 100) {
+
+    if (healthPercentage >= 98) {
       return '/images/panels/image1.png';
     } else if (healthPercentage >= 50) {
       return '/images/panels/image2.png';
@@ -128,7 +128,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         table.topPanels.states.forEach((state: string, index: number) => {
           const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, 'top', index);
           // Only show actually faulty panels (not just affected by series connection)
-          if (state === 'fault' && healthPercentage < 20) {
+          if (state === 'fault' && healthPercentage < 50) {
             culpritPanels.push({
               id: `T.${table.serialNumber.split('-')[1]}.TOP.P${index + 1}`,
               tableId: table.id,
@@ -219,11 +219,11 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   {user.companyName || 'Solar Plant'} - Solar Plant Monitor
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {userRole === 'super_admin' ? 'Super Admin View' : 
-                   userRole === 'plant_admin' ? 'Plant Admin Dashboard' : 
-                   userRole === 'management' ? 'Management Dashboard' :
-                   userRole === 'technician' ? 'Technician Dashboard' :
-                   'User Dashboard'} - {company.name}
+                  {userRole === 'super_admin' ? 'Super Admin View' :
+                    userRole === 'plant_admin' ? 'Plant Admin Dashboard' :
+                      userRole === 'management' ? 'Management Dashboard' :
+                        userRole === 'technician' ? 'Technician Dashboard' :
+                          'User Dashboard'} - {company.name}
                 </p>
                 {userRole && userRole !== 'super_admin' && userRole !== 'plant_admin' && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -261,7 +261,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Total Panels</p>
                     <p className="text-2xl font-bold">
-                      {plantDetails?.tables?.reduce((sum: number, table: any) => 
+                      {plantDetails?.tables?.reduce((sum: number, table: any) =>
                         sum + table.panelsTop + table.panelsBottom, 0) || 0}
                     </p>
                   </div>
@@ -354,7 +354,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Tables Found</h3>
                   <p className="text-muted-foreground">
-                    {userRole === 'user' ? 
+                    {userRole === 'user' ?
                       'No tables have been configured for this plant yet.' :
                       'No tables have been created for this plant yet.'
                     }
@@ -379,14 +379,14 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Total Panels:</span>
                     <Badge variant="outline">
-                      {plantDetails?.tables?.reduce((sum: number, table: any) => 
+                      {plantDetails?.tables?.reduce((sum: number, table: any) =>
                         sum + table.panelsTop + table.panelsBottom, 0) || 0}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Good Panels:</span>
                     <Badge variant="default" className="bg-green-500 text-green-900">
-                      {(plantDetails?.tables?.reduce((sum: number, table: any) => 
+                      {(plantDetails?.tables?.reduce((sum: number, table: any) =>
                         sum + table.panelsTop + table.panelsBottom, 0) || 0) - faultPanels.length - repairingPanels.length}
                     </Badge>
                   </div>
@@ -448,7 +448,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                             {panel.tableNumber} - {panel.position} - {panel.panelNumber}
                           </p>
                         </div>
-                        <Badge 
+                        <Badge
                           variant={panel.status === 'Fault' ? 'destructive' : 'secondary'}
                           className={panel.status === 'Repairing' ? 'bg-yellow-500 text-yellow-900' : ''}
                         >
@@ -471,24 +471,24 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button 
-                    onClick={() => navigate('/infrastructure')} 
+                  <Button
+                    onClick={() => navigate('/infrastructure')}
                     className="w-full"
                     variant="outline"
                   >
                     <Settings className="h-4 w-4 mr-2" />
                     Infrastructure
                   </Button>
-                  <Button 
-                    onClick={() => navigate('/existing-staff-members')} 
+                  <Button
+                    onClick={() => navigate('/existing-staff-members')}
                     className="w-full"
                     variant="outline"
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Manage Users
                   </Button>
-                  <Button 
-                    onClick={() => navigate('/add-table')} 
+                  <Button
+                    onClick={() => navigate('/add-table')}
                     className="w-full"
                     variant="outline"
                   >
@@ -510,7 +510,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                    {userRole === 'super_admin' ? 
+                    {userRole === 'super_admin' ?
                       'You can monitor all plant data but cannot make changes from this view.' :
                       'You can monitor the solar plant but cannot make any changes. Contact your administrator for modifications.'
                     }
@@ -521,8 +521,8 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
           </div>
         </div>
       </main>
-      
-      
+
+
     </div>
   );
 };

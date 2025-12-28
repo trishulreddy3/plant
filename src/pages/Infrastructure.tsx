@@ -12,7 +12,7 @@ import { getCompanies } from '@/lib/auth';
 import { PlantDetails, getPlantDetails, deleteTableFromPlant } from '@/lib/realFileSystem';
 import { useToast } from '@/hooks/use-toast';
 import GradientHeading from '@/components/ui/GradientHeading';
- 
+
 
 const Infrastructure = () => {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ const Infrastructure = () => {
 
   useEffect(() => {
     if (!user || user.role !== 'plant_admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
 
@@ -58,10 +58,10 @@ const Infrastructure = () => {
         const { getAllCompanies } = await import('@/lib/realFileSystem');
         const backendCompanies = await getAllCompanies();
         const selectedCompany = backendCompanies.find(c => c.id === user.companyId);
-        
+
         if (selectedCompany) {
           setCompany(selectedCompany);
-          
+
           // Load plant details to get tables
           const { getPlantDetails } = await import('@/lib/realFileSystem');
           const plantDetails = await getPlantDetails(user.companyId);
@@ -83,12 +83,12 @@ const Infrastructure = () => {
       } catch (error) {
         console.error('Error loading company data:', error);
         // Fallback to localStorage
-    const companies = getCompanies();
-    const userCompany = companies.find(c => c.id === user.companyId);
-    setCompany(userCompany);
+        const companies = getCompanies();
+        const userCompany = companies.find(c => c.id === user.companyId);
+        setCompany(userCompany);
 
         const companyTables = getTablesByCompany(user.companyId);
-    setTables(companyTables);
+        setTables(companyTables);
       } finally {
         setLoading(false);
       }
@@ -104,11 +104,27 @@ const Infrastructure = () => {
       if (details) {
         setPlantDetails(details);
         setTables(details.tables || []);
+
+        // Also update company object if power limits changed
+        setCompany(prev => ({
+          ...prev,
+          voltagePerPanel: details.voltagePerPanel,
+          currentPerPanel: details.currentPerPanel,
+          plantPowerKW: details.plantPowerKW
+        }));
       }
     } catch (e) {
       console.error('Failed to reload tables', e);
     }
   };
+
+  useEffect(() => {
+    if (!user?.companyId) return;
+
+    // Initial load happens in the other useEffect, but let's set up the interval
+    const interval = setInterval(reloadTables, 5000); // 5 seconds
+    return () => clearInterval(interval);
+  }, [user?.companyId]);
 
   const onRowClick = (table: any) => {
     setSelectedTable(prev => (prev?.id === table.id ? null : table));
@@ -185,50 +201,50 @@ const Infrastructure = () => {
           </Card>
         </main>
 
-      {/* Delete Step 1: Caution */}
-      {showDeleteStep1 && selectedTable && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="glass-card max-w-md w-full mx-4">
-            <CardHeader>
-              <CardTitle className="text-red-600">Caution: Deleting Table</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm">You are about to permanently delete <span className="font-mono font-semibold">{selectedTable.serialNumber}</span>. This action cannot be undone.</p>
-              <div className="flex gap-3 pt-2">
-                <Button className="flex-1" onClick={() => { setShowDeleteStep1(false); setShowDeleteStep2(true); }}>I Understand, Continue</Button>
-                <Button variant="outline" className="flex-1" onClick={() => setShowDeleteStep1(false)}>
-                  <X className="mr-2 h-4 w-4" /> Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        {/* Delete Step 1: Caution */}
+        {showDeleteStep1 && selectedTable && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="glass-card max-w-md w-full mx-4">
+              <CardHeader>
+                <CardTitle className="text-red-600">Caution: Deleting Table</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm">You are about to permanently delete <span className="font-mono font-semibold">{selectedTable.serialNumber}</span>. This action cannot be undone.</p>
+                <div className="flex gap-3 pt-2">
+                  <Button className="flex-1" onClick={() => { setShowDeleteStep1(false); setShowDeleteStep2(true); }}>I Understand, Continue</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setShowDeleteStep1(false)}>
+                    <X className="mr-2 h-4 w-4" /> Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-      {/* Delete Step 2: Type to confirm */}
-      {showDeleteStep2 && selectedTable && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="glass-card max-w-md w-full mx-4">
-            <CardHeader>
-              <CardTitle className="text-red-700">Confirm Deletion</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm">Type the Table No to confirm deletion (e.g., <span className="font-mono font-semibold">{selectedTable.serialNumber}</span> or its number only)</p>
-              <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder={`${selectedTable.serialNumber} or ${String(selectedTable.serialNumber || '').replace(/\D+/g,'')}`} className="h-12" />
-              <div className="flex gap-3 pt-2">
-                <Button variant="destructive" className="flex-1 h-12" onClick={confirmDelete} disabled={!((deleteConfirm === selectedTable.serialNumber) || (deleteConfirm && deleteConfirm.replace(/\D+/g,'') === String(selectedTable.serialNumber || '').replace(/\D+/g,'')))}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
-                <Button variant="outline" className="flex-1 h-12" onClick={() => setShowDeleteStep2(false)}>
-                  <X className="mr-2 h-4 w-4" /> Back
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        {/* Delete Step 2: Type to confirm */}
+        {showDeleteStep2 && selectedTable && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="glass-card max-w-md w-full mx-4">
+              <CardHeader>
+                <CardTitle className="text-red-700">Confirm Deletion</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm">Type the Table No to confirm deletion (e.g., <span className="font-mono font-semibold">{selectedTable.serialNumber}</span> or its number only)</p>
+                <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder={`${selectedTable.serialNumber} or ${String(selectedTable.serialNumber || '').replace(/\D+/g, '')}`} className="h-12" />
+                <div className="flex gap-3 pt-2">
+                  <Button variant="destructive" className="flex-1 h-12" onClick={confirmDelete} disabled={!((deleteConfirm === selectedTable.serialNumber) || (deleteConfirm && deleteConfirm.replace(/\D+/g, '') === String(selectedTable.serialNumber || '').replace(/\D+/g, '')))}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                  <Button variant="outline" className="flex-1 h-12" onClick={() => setShowDeleteStep2(false)}>
+                    <X className="mr-2 h-4 w-4" /> Back
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        
+
       </div>
     );
   }
@@ -257,7 +273,7 @@ const Infrastructure = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Unable to load company information. Please try logging in again.
               </p>
-              <Button onClick={() => navigate('/admin-login')}>
+              <Button onClick={() => navigate('/login')}>
                 Go to Login
               </Button>
             </CardContent>
@@ -401,23 +417,22 @@ const Infrastructure = () => {
                       const topPanelsCount = table.panelsTop || 0;
                       const bottomPanelsCount = table.panelsBottom || 0;
                       const totalPanels = topPanelsCount + bottomPanelsCount;
-                      
+
                       // Get voltage and current from plant details
                       const voltagePerPanel = plantDetails?.voltagePerPanel || company?.voltagePerPanel || 20;
                       const currentPerPanel = plantDetails?.currentPerPanel || company?.currentPerPanel || 10;
                       const maxPowerPerPanel = voltagePerPanel * currentPerPanel;
                       const maxTotalPower = maxPowerPerPanel * totalPanels;
                       const displaySerial = String(table.serialNumber || '').replace(/\D+/g, '') || table.serialNumber;
-                      
+
                       return (
                         <tr
                           key={table.id}
                           onClick={() => onRowClick(table)}
-                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${
-                            selectedTable?.id === table.id 
-                              ? 'bg-blue-50 hover:bg-blue-100' 
-                              : 'hover:bg-gray-50'
-                          }`}
+                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${selectedTable?.id === table.id
+                            ? 'bg-blue-50 hover:bg-blue-100'
+                            : 'hover:bg-gray-50'
+                            }`}
                         >
                           <td className="py-4 px-4 font-medium text-primary border-r border-gray-200">
                             <span className="font-mono font-semibold">{displaySerial}</span>
@@ -433,7 +448,7 @@ const Infrastructure = () => {
                     })}
                   </tbody>
                 </table>
-                    </div>
+              </div>
             </CardContent>
           </Card>
         )}

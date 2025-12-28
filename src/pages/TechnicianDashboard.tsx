@@ -13,11 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { LogOut } from 'lucide-react';
 import GradientHeading from '@/components/ui/GradientHeading';
 
-// Enable backend tickets API
+// flip this to false if you want to use local mock tickets instead
 const USE_TICKETS_API = true;
 
 const TechnicianDashboard = () => {
-  const LAZY_MODE = true;
+  // if true, only loads data when the user clicks a button
+  const LAZY_MODE = false;
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [user, setUser] = useState(getCurrentUser());
@@ -59,7 +60,7 @@ const TechnicianDashboard = () => {
         tickets.forEach(t => { meta[`${t.trackId}-${t.fault}`] = { resolvedAt: t.resolvedAt, category: t.category }; });
         setResolvedIds(ids);
         setResolvedMeta(meta);
-        setResolvedTickets([...tickets].sort((a,b)=> new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime()));
+        setResolvedTickets([...tickets].sort((a, b) => new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime()));
       } catch (e) {
         console.warn('Failed to load resolved tickets', e);
       }
@@ -74,27 +75,58 @@ const TechnicianDashboard = () => {
       navigate('/technician-login');
       return;
     }
-    
+
     setUser(currentUser);
-    // resolve companyId by companyName
+    setUser(currentUser);
     if (LAZY_MODE && !dataLoaded) return;
-    (async () => {
+
+    const runLoad = async () => {
       try {
         const companies = await getAllCompanies();
-        const found = companies.find(c => c.name === currentUser?.companyName);
+        // Match by company name (legacy) or id
+        const found = companies.find(c =>
+          c.name?.toLowerCase() === currentUser?.companyName?.toLowerCase() ||
+          c.id === currentUser?.companyId
+        );
+
         if (found) {
           setCompanyId(found.id);
-          setLoadingDefects(true);
-          const plantDetails = await getPlantDetails(found.id);
-          setPlant(plantDetails);
+          const pd = await getPlantDetails(found.id);
+          if (pd) setPlant(pd);
         }
       } catch (e) {
-        console.error('Failed to load plant details:', e);
+        console.error('Fetch error:', e);
       } finally {
         setLoadingDefects(false);
       }
-    })();
+    };
+
+    setLoadingDefects(true);
+    runLoad();
+    const intervalId = setInterval(runLoad, 10000);
+    return () => clearInterval(intervalId);
   }, [navigate, dataLoaded]);
+
+  const handleRefresh = async () => {
+    setLoadingDefects(true);
+    if (!user) return;
+    try {
+      const companies = await getAllCompanies();
+      const found = companies.find(c =>
+        c.name?.toLowerCase() === user.companyName?.toLowerCase() ||
+        c.id === user.companyId
+      );
+      if (found) {
+        const pd = await getPlantDetails(found.id);
+        if (pd) setPlant(pd);
+      }
+      setResolvedRefreshKey(k => k + 1);
+    } catch (e) {
+      console.error('Refresh failed:', e);
+    } finally {
+      setLoadingDefects(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -116,9 +148,9 @@ const TechnicianDashboard = () => {
         <div className="flex items-center gap-2 rounded-md border px-2 py-1 text-xs bg-card">
           <span className={
             'inline-block w-2.5 h-2.5 rounded-full ' +
-            (connStatus==='online' ? 'bg-green-500' : connStatus==='offline' ? 'bg-red-500' : 'bg-gray-400')
+            (connStatus === 'online' ? 'bg-green-500' : connStatus === 'offline' ? 'bg-red-500' : 'bg-gray-400')
           } />
-          <span>{connStatus==='online' ? 'Connected' : connStatus==='offline' ? 'Offline' : 'Unknown'}</span>
+          <span>{connStatus === 'online' ? 'Connected' : connStatus === 'offline' ? 'Offline' : 'Unknown'}</span>
           <Button size="sm" variant="secondary" onClick={checkConnection}>Check</Button>
         </div>
         <Button
@@ -127,6 +159,28 @@ const TechnicianDashboard = () => {
         >
           <LogOut className="w-4 h-4 mr-2" /> Logout
         </Button>
+      </div>
+      {/* Mobile top toolbar */}
+      <div className="sm:hidden sticky top-0 z-20 bg-background/90 backdrop-blur border-b">
+        <div className="px-4 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                'inline-block w-2.5 h-2.5 rounded-full ' +
+                (connStatus === 'online' ? 'bg-green-500' : connStatus === 'offline' ? 'bg-red-500' : 'bg-gray-400')
+              }
+            />
+            <span className="text-xs">{connStatus === 'online' ? 'Connected' : connStatus === 'offline' ? 'Offline' : 'Unknown'}</span>
+            <Button size="sm" variant="secondary" onClick={checkConnection}>Check</Button>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => { logout(); authLogout(); navigate('/login'); }}
+          >
+            <LogOut className="w-4 h-4 mr-1" /> Logout
+          </Button>
+        </div>
       </div>
       <div className="container mx-auto px-4 py-8 flex-1 overflow-auto">
         {/* Header text above tabs */}
@@ -138,13 +192,13 @@ const TechnicianDashboard = () => {
 
         <Tabs defaultValue="overall" className="w-full h-full flex flex-col">
           <TabsList className="mb-6 grid grid-cols-2 gap-3 w-full bg-transparent p-0 sm:sticky sm:top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-2">
-            <TabsTrigger 
+            <TabsTrigger
               value="overall"
               className="w-full h-12 text-base rounded-xl border border-gray-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
             >
               over all plant data
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="defects"
               className="w-full h-12 text-base rounded-xl border border-gray-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
             >
@@ -153,13 +207,19 @@ const TechnicianDashboard = () => {
           </TabsList>
 
           <TabsContent value="overall" className="mt-6 min-h-0 overflow-auto">
-            <UnifiedViewTables userRole="user" hideHeader={true} />
+            <UnifiedViewTables userRole="user" hideHeader={true} companyId={companyId || undefined} />
           </TabsContent>
 
           <TabsContent value="defects" className="mt-6 min-h-0 overflow-auto">
             <Card className="glass-card h-full flex flex-col">
-              <CardHeader className="sticky top-0 z-10 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+              <CardHeader className="sticky top-0 z-10 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 flex flex-row items-center justify-between">
                 <CardTitle>View All Defects</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loadingDefects}>
+                  <svg className={`h-4 w-4 mr-2 ${loadingDefects ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh Data
+                </Button>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto">
                 {/* Filters */}
@@ -167,16 +227,16 @@ const TechnicianDashboard = () => {
                   {LAZY_MODE && (
                     <Button variant="secondary" onClick={() => setDataLoaded(true)}>Load/Refresh Plant</Button>
                   )}
-                  <Button variant={defectFilter==='all' && !resolveMode ? 'default':'outline'} onClick={()=>{ setResolveMode(false); setDefectFilter('all'); }}>View All</Button>
-                  <Button variant={defectFilter==='moderate' && !resolveMode ? 'default':'outline'} onClick={()=>{ setResolveMode(false); setDefectFilter('moderate'); }}>List Moderate</Button>
-                  <Button variant={defectFilter==='bad' && !resolveMode ? 'default':'outline'} onClick={()=>{ setResolveMode(false); setDefectFilter('bad'); }}>List Bad</Button>
-                  <Button variant={defectFilter==='resolved' && !resolveMode ? 'default':'outline'} onClick={()=>{ setResolveMode(false); setDefectFilter('resolved'); }}>Solved Tickets</Button>
-                  {LAZY_MODE && defectFilter==='resolved' && (
-                    <Button variant="secondary" onClick={() => setResolvedRefreshKey(k=>k+1)}>Refresh Tickets</Button>
+                  <Button variant={defectFilter === 'all' && !resolveMode ? 'default' : 'outline'} onClick={() => { setResolveMode(false); setDefectFilter('all'); }}>View All</Button>
+                  <Button variant={defectFilter === 'moderate' && !resolveMode ? 'default' : 'outline'} onClick={() => { setResolveMode(false); setDefectFilter('moderate'); }}>List Moderate</Button>
+                  <Button variant={defectFilter === 'bad' && !resolveMode ? 'default' : 'outline'} onClick={() => { setResolveMode(false); setDefectFilter('bad'); }}>List Bad</Button>
+                  <Button variant={defectFilter === 'resolved' && !resolveMode ? 'default' : 'outline'} onClick={() => { setResolveMode(false); setDefectFilter('resolved'); }}>Solved Tickets</Button>
+                  {LAZY_MODE && defectFilter === 'resolved' && (
+                    <Button variant="secondary" onClick={() => setResolvedRefreshKey(k => k + 1)}>Refresh Tickets</Button>
                   )}
                   <Button
                     variant={resolveMode ? 'default' : 'secondary'}
-                    onClick={()=>{ setDefectFilter('all'); setResolveMode(true); }}
+                    onClick={() => { setDefectFilter('all'); setResolveMode(true); }}
                     aria-pressed={resolveMode}
                   >
                     Resolve
@@ -190,7 +250,7 @@ const TechnicianDashboard = () => {
                       <input
                         type="date"
                         value={resolvedFilterStart}
-                        onChange={(e)=>setResolvedFilterStart(e.target.value)}
+                        onChange={(e) => setResolvedFilterStart(e.target.value)}
                         className="h-9 px-3 py-1 rounded border w-full max-w-[220px]"
                       />
                     </div>
@@ -199,7 +259,7 @@ const TechnicianDashboard = () => {
                       <input
                         type="date"
                         value={resolvedFilterEnd}
-                        onChange={(e)=>setResolvedFilterEnd(e.target.value)}
+                        onChange={(e) => setResolvedFilterEnd(e.target.value)}
                         className="h-9 px-3 py-1 rounded border w-full max-w-[220px]"
                       />
                     </div>
@@ -207,7 +267,7 @@ const TechnicianDashboard = () => {
                       <span className="text-sm font-medium">Category</span>
                       <select
                         value={resolvedFilterCategory}
-                        onChange={(e)=>setResolvedFilterCategory(e.target.value as 'all'|'MODERATE'|'BAD')}
+                        onChange={(e) => setResolvedFilterCategory(e.target.value as 'all' | 'MODERATE' | 'BAD')}
                         className="h-9 px-3 py-1 rounded border w-full max-w-[220px]"
                       >
                         <option value="all">View All</option>
@@ -268,17 +328,17 @@ const TechnicianDashboard = () => {
                           >
                             <td className="p-3">{row.fault}</td>
                             <td className="p-3">{row.expCur.toFixed(1)}A</td>
-                            <td className="p-3"><span className={row.health<80? 'text-red-600 font-semibold':''}>{row.actCur.toFixed(1)}A</span></td>
+                            <td className="p-3"><span className={row.health < 80 ? 'text-red-600 font-semibold' : ''}>{row.actCur.toFixed(1)}A</span></td>
                             <td className="p-3">{row.trackId}</td>
                             <td className="p-3">{row.issueExist}</td>
                             <td className="p-3">
                               <div className="flex items-center gap-2">
                                 <img
-                                  src={row.category==='BAD' ? '/images/panels/image3.png' : row.category==='MODERATE' ? '/images/panels/image2.png' : '/images/panels/image1.png'}
+                                  src={row.category === 'BAD' ? '/images/panels/bad.png' : row.category === 'MODERATE' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
                                   alt={`${row.category.toLowerCase()} panel`}
                                   className="h-5 w-5 object-contain"
                                 />
-                                <Badge variant={row.category==='BAD'?'destructive': 'secondary'}>{row.category}</Badge>
+                                <Badge variant={row.category === 'BAD' ? 'destructive' : 'secondary'}>{row.category}</Badge>
                               </div>
                             </td>
                             <td className="p-3">{row.powerLoss.toFixed(1)} kW</td>
@@ -287,7 +347,7 @@ const TechnicianDashboard = () => {
                         ))}
                         {defectFilter === 'resolved' && !loadingDefects && resolvedTickets
                           // apply UI filters client-side
-                          .filter(t => resolvedFilterCategory==='all' || t.category === resolvedFilterCategory)
+                          .filter(t => resolvedFilterCategory === 'all' || t.category === resolvedFilterCategory)
                           .filter(t => !resolvedFilterStart || new Date(t.resolvedAt).getTime() >= new Date(resolvedFilterStart).getTime())
                           .filter(t => !resolvedFilterEnd || new Date(t.resolvedAt).getTime() <= new Date(resolvedFilterEnd).getTime())
                           .map((t) => (
@@ -297,11 +357,11 @@ const TechnicianDashboard = () => {
                               <td className="p-3">
                                 <div className="flex items-center gap-2">
                                   <img
-                                    src={t.category==='BAD' ? '/images/panels/image3.png' : '/images/panels/image2.png'}
+                                    src={t.category === 'BAD' ? '/images/panels/bad.png' : '/images/panels/moderate.png'}
                                     alt={`${t.category.toLowerCase()} panel`}
                                     className="h-5 w-5 object-contain"
                                   />
-                                  <Badge variant={t.category==='BAD'?'destructive': 'secondary'}>{t.category}</Badge>
+                                  <Badge variant={t.category === 'BAD' ? 'destructive' : 'secondary'}>{t.category}</Badge>
                                 </div>
                               </td>
                               <td className="p-3">{Number(t.powerLoss || 0).toFixed(3)}</td>
@@ -314,10 +374,10 @@ const TechnicianDashboard = () => {
                           defectFilter,
                           resolvedIds,
                           { resolvedMeta, start: resolvedFilterStart, end: resolvedFilterEnd, category: resolvedFilterCategory }
-                        ).length===0 && (
-                          <tr><td className="p-4 text-muted-foreground" colSpan={8}>No defects found</td></tr>
-                        )}
-                        {defectFilter === 'resolved' && !loadingDefects && resolvedTickets.length===0 && (
+                        ).length === 0 && (
+                            <tr><td className="p-4 text-muted-foreground" colSpan={8}>No defects found</td></tr>
+                          )}
+                        {defectFilter === 'resolved' && !loadingDefects && resolvedTickets.length === 0 && (
                           <tr><td className="p-4 text-muted-foreground" colSpan={6}>No resolved tickets found</td></tr>
                         )}
                       </tbody>
@@ -345,18 +405,18 @@ const TechnicianDashboard = () => {
                         <div className="font-medium">{row.fault}</div>
                         <div className="flex items-center gap-2">
                           <img
-                            src={row.category==='BAD' ? '/images/panels/image3.png' : row.category==='MODERATE' ? '/images/panels/image2.png' : '/images/panels/image1.png'}
+                            src={row.category === 'BAD' ? '/images/panels/bad.png' : row.category === 'MODERATE' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
                             alt={`${row.category.toLowerCase()} panel`}
                             className="h-5 w-5 object-contain"
                           />
-                          <Badge variant={row.category==='BAD'?'destructive': 'secondary'}>{row.category}</Badge>
+                          <Badge variant={row.category === 'BAD' ? 'destructive' : 'secondary'}>{row.category}</Badge>
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <div className="text-muted-foreground">Exp Cur</div>
                         <div>{row.expCur.toFixed(1)}A</div>
                         <div className="text-muted-foreground">Actual Cur</div>
-                        <div className={row.health<80? 'text-red-600 font-semibold':''}>{row.actCur.toFixed(1)}A</div>
+                        <div className={row.health < 80 ? 'text-red-600 font-semibold' : ''}>{row.actCur.toFixed(1)}A</div>
                         <div className="text-muted-foreground">Track Id</div>
                         <div>{row.trackId}</div>
                         <div className="text-muted-foreground">Issue Exist</div>
@@ -374,18 +434,18 @@ const TechnicianDashboard = () => {
                         <div className="font-medium">{t.fault}</div>
                         <div className="flex items-center gap-2">
                           <img
-                            src={t.category==='BAD' ? '/images/panels/image3.png' : '/images/panels/image2.png'}
+                            src={t.category === 'BAD' ? '/images/panels/bad.png' : '/images/panels/moderate.png'}
                             alt={`${t.category.toLowerCase()} panel`}
                             className="h-5 w-5 object-contain"
                           />
-                          <Badge variant={t.category==='BAD'?'destructive': 'secondary'}>{t.category}</Badge>
+                          <Badge variant={t.category === 'BAD' ? 'destructive' : 'secondary'}>{t.category}</Badge>
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <div className="text-muted-foreground">Track Id</div>
                         <div>{t.trackId}</div>
                         <div className="text-muted-foreground">Power Loss</div>
-                        <div>{Number(t.powerLoss||0).toFixed(3)} kW</div>
+                        <div>{Number(t.powerLoss || 0).toFixed(3)} kW</div>
                         <div className="text-muted-foreground">Resolved At</div>
                         <div>{new Date(t.resolvedAt).toLocaleString()}</div>
                         <div className="text-muted-foreground">Resolved By</div>
@@ -398,10 +458,10 @@ const TechnicianDashboard = () => {
                     defectFilter,
                     resolvedIds,
                     { resolvedMeta, start: resolvedFilterStart, end: resolvedFilterEnd, category: resolvedFilterCategory }
-                  ).length===0 && (
-                    <div className="text-sm text-muted-foreground">No defects found</div>
-                  )}
-                  {defectFilter === 'resolved' && !loadingDefects && resolvedTickets.length===0 && (
+                  ).length === 0 && (
+                      <div className="text-sm text-muted-foreground">No defects found</div>
+                    )}
+                  {defectFilter === 'resolved' && !loadingDefects && resolvedTickets.length === 0 && (
                     <div className="text-sm text-muted-foreground">No resolved tickets found</div>
                   )}
                 </div>
@@ -409,12 +469,19 @@ const TechnicianDashboard = () => {
                 {/* Technician role has no edit/delete controls; selection bar removed */}
 
                 {/* Legend */}
-                <div className="mt-4 flex items-center gap-4">
-                  <div className="text-xs text-muted-foreground">Panels Health:</div>
+                <div className="mt-4 flex flex-wrap items-center gap-6 border-t pt-4">
+                  <div className="text-sm font-medium text-muted-foreground mr-2">Panel Status:</div>
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="inline-block w-3 h-3 bg-green-500 rounded-sm" /> 100%
-                    <span className="inline-block w-3 h-3 bg-yellow-500 rounded-sm ml-4" /> &lt;80%
-                    <span className="inline-block w-3 h-3 bg-red-500 rounded-sm ml-4" /> &lt;50%
+                    <img src="/images/panels/good.png" className="w-5 h-5 object-contain" alt="Good" />
+                    <span>Healthy (Good)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <img src="/images/panels/moderate.png" className="w-5 h-5 object-contain" alt="Moderate" />
+                    <span>Moderate Defect</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <img src="/images/panels/bad.png" className="w-5 h-5 object-contain" alt="Bad" />
+                    <span>Critical Fault (Bad)</span>
                   </div>
                 </div>
               </CardContent>
@@ -422,7 +489,7 @@ const TechnicianDashboard = () => {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={resolveOpen} onOpenChange={(open)=>{ setResolveOpen(open); if (!open) { setResolveMode(false); setSelectedRow(null); } }}>
+        <Dialog open={resolveOpen} onOpenChange={(open) => { setResolveOpen(open); if (!open) { setResolveMode(false); setSelectedRow(null); } }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Track Id: {selectedRow?.trackId} Issue Resolved?</DialogTitle>
@@ -431,12 +498,12 @@ const TechnicianDashboard = () => {
             <div className="mt-2">
               <div className="text-sm font-medium mb-2">Reason:</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {['MC4 Cable Loose','MC4 Connector Broken','Panel with Dust','Panel with Bird Dropping','Panel Scratches','Panel Damage'].map((reason)=> (
+                {['MC4 Cable Loose', 'MC4 Connector Broken', 'Panel with Dust', 'Panel with Bird Dropping', 'Panel Scratches', 'Panel Damage'].map((reason) => (
                   <button
                     key={reason}
                     type="button"
-                    onClick={()=>setSelectedReason(reason)}
-                    className={(selectedReason===reason? 'bg-primary text-white ' : 'bg-muted ') + 'rounded-md px-3 py-2 text-left text-sm'}
+                    onClick={() => setSelectedReason(reason)}
+                    className={(selectedReason === reason ? 'bg-primary text-white ' : 'bg-muted ') + 'rounded-md px-3 py-2 text-left text-sm'}
                   >
                     {reason}
                   </button>
@@ -445,14 +512,14 @@ const TechnicianDashboard = () => {
             </div>
             <DialogFooter>
               <div className="flex w-full gap-3">
-                <Button className="flex-1" onClick={async ()=>{ 
+                <Button className="flex-1" onClick={async () => {
                   if (selectedRow && companyId) {
                     try {
                       // 1) Reset culprit panel values in backend first
                       let panelReset = false;
                       try {
                         const [, serial, pos, pNum] = selectedRow.fault.match(/^(TBL-\d+)\.(TOP|BOTTOM)\.P(\d+)$/) || [];
-                        const position = (pos || 'TOP').toLowerCase() as 'top'|'bottom';
+                        const position = (pos || 'TOP').toLowerCase() as 'top' | 'bottom';
                         const panelIndex = Math.max(0, (parseInt(pNum || '1', 10) - 1));
                         const table = plant?.tables.find(t => t.serialNumber === serial);
                         if (table) {
@@ -487,19 +554,19 @@ const TechnicianDashboard = () => {
                           tickets.forEach(t => { meta[`${t.trackId}-${t.fault}`] = { resolvedAt: t.resolvedAt, category: t.category }; });
                           setResolvedIds(ids);
                           setResolvedMeta(meta);
-                          setResolvedTickets([...tickets].sort((a,b)=> new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime()));
+                          setResolvedTickets([...tickets].sort((a, b) => new Date(b.resolvedAt).getTime() - new Date(a.resolvedAt).getTime()));
                         } catch (e) {
                           console.warn('Failed to refresh resolved tickets after create', e);
                         }
                       }
-                    } catch(e) {
+                    } catch (e) {
                       console.error('Failed to create resolved ticket', e);
                       // do not modify resolvedIds if any step failed
                     }
                   }
-                  setResolveOpen(false); setResolveMode(false); 
+                  setResolveOpen(false); setResolveMode(false);
                 }}>Yes</Button>
-                <Button variant="outline" className="flex-1" onClick={()=>{ setResolveOpen(false); }}>No</Button>
+                <Button variant="outline" className="flex-1" onClick={() => { setResolveOpen(false); }}>No</Button>
               </div>
             </DialogFooter>
           </DialogContent>
@@ -524,88 +591,65 @@ type DefectRow = {
   idKey: string; // trackId-fault for backend mapping
 };
 
-function getDefectRows(plant: PlantDetails, filter: 'all'|'moderate'|'bad'|'resolved'): DefectRow[] {
-  // Compute health and losses from consistent units using V*A -> kW
+function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' | 'resolved'): DefectRow[] {
   const rows: DefectRow[] = [];
-  const expectedCurrent = plant.currentPerPanel; // A
-  const expectedPowerKW = (plant.voltagePerPanel * plant.currentPerPanel) / 1000; // kW
+  const expectedCurrent = plant.currentPerPanel || 10;
+  const vp = plant.voltagePerPanel || 20;
+  const cp = plant.currentPerPanel || 10;
+  const expectedPowerKW = (vp * cp) / 1000;
 
-  for (const table of plant.tables) {
-    const topFaultStart = typeof (table as any)?.topPanels?.actualFaultyIndex === 'number' ? (table as any).topPanels.actualFaultyIndex : -1;
-    const bottomFaultStart = typeof (table as any)?.bottomPanels?.actualFaultyIndex === 'number' ? (table as any).bottomPanels.actualFaultyIndex : -1;
+  for (const table of (plant.live_data || [])) {
+    const voltages = table.panelVoltages || [];
+    const actCur = table.current || 0;
+    const serial = table.serialNumber || table.node;
 
-    const push = (
-      position: 'TOP' | 'BOTTOM',
-      currents: number[],
-      faultyStart: number
-    ) => {
-      if (faultyStart >= 0) {
-        // Only include the main culprit panel index for series break
-        const idx = faultyStart;
-        const actCur = currents[idx] ?? 0;
-        const actualPowerKW = (plant.voltagePerPanel * actCur) / 1000;
-        const health = expectedPowerKW > 0 ? Math.round((actualPowerKW / expectedPowerKW) * 100) : 0;
-        if (health >= 100) return; // skip if somehow perfect
-        const category: 'BAD' = 'BAD';
-        const powerLossKW = Math.max(expectedPowerKW - actualPowerKW, 0);
-        const predictedLossKW = powerLossKW * 4;
-        const serial = `${table.serialNumber}`;
-        const fault = `${serial}.${position}.P${idx + 1}`;
-        const issueExist = `${(2 + (idx % 20) * 0.1).toFixed(1)}hr`;
-        const trackId = `${(124500 + (idx % 500)).toString()}`;
-        rows.push({
-          key: `${table.id}-${position}-${idx}`,
-          fault,
-          expCur: expectedCurrent,
-          actCur,
-          trackId,
-          issueExist,
-          category,
-          health,
-          powerLoss: powerLossKW,
-          predictedLoss: predictedLossKW,
-          idKey: `${trackId}-${fault}`,
-        });
-        return;
-      }
+    // Determine row counts from table properties (added in server.js fix)
+    const topCount = table.panelsTop || Math.ceil(voltages.length / 2);
 
-      // No series break provided: include all below-ideal panels
-      currents.forEach((actCur, idx) => {
-        const actualPowerKW = (plant.voltagePerPanel * (actCur ?? 0)) / 1000;
-        const health = expectedPowerKW > 0 ? Math.round((actualPowerKW / expectedPowerKW) * 100) : 0;
-        if (health >= 100) return;
-        const category: 'BAD' | 'MODERATE' = health < 50 ? 'BAD' : 'MODERATE';
-        const powerLossKW = Math.max(expectedPowerKW - actualPowerKW, 0);
-        const predictedLossKW = powerLossKW * 4;
-        const serial = `${table.serialNumber}`;
-        const fault = `${serial}.${position}.P${idx + 1}`;
-        const issueExist = `${(2 + (idx % 20) * 0.1).toFixed(1)}hr`;
-        const trackId = `${(124500 + (idx % 500)).toString()}`;
-        rows.push({
-          key: `${table.id}-${position}-${idx}`,
-          fault,
-          expCur: expectedCurrent,
-          actCur,
-          trackId,
-          issueExist,
-          category,
-          health,
-          powerLoss: powerLossKW,
-          predictedLoss: predictedLossKW,
-          idKey: `${trackId}-${fault}`,
-        });
+    voltages.forEach((actVol: number, idx: number) => {
+      // Use Voltage Health to identify the actual culprit
+      // Natural variation is +/- 0.2V, so anything below 19.5V is a real defect
+      const voltageHealth = (actVol / vp) * 100;
+
+      // Only show as "defect" if voltage health is significantly low
+      // This prevents "Good" panels in a bottlenecked series from showing up as defects
+      if (voltageHealth >= 98) return;
+
+      const position = idx < topCount ? 'TOP' : 'BOTTOM';
+      const panelIdxInRow = idx < topCount ? idx + 1 : (idx - topCount + 1);
+
+      // CATEGORY: Based on Voltage health
+      // < 50% = BAD, else MODERATE
+      const category: 'BAD' | 'MODERATE' = voltageHealth < 50 ? 'BAD' : 'MODERATE';
+
+      const actualPowerKW = (actVol * actCur) / 1000;
+      const powerLossKW = Math.max(expectedPowerKW - actualPowerKW, 0);
+      const predictedLossKW = powerLossKW * 4;
+
+      const fault = `${serial}.${position}.P${panelIdxInRow}`;
+      const trackId = `${(124500 + (serial.match(/\d+/) ? parseInt(serial.match(/\d+/)![0]) * 100 : 0) + idx).toString()}`;
+
+      rows.push({
+        key: `${table.id || serial}-${idx}`,
+        fault,
+        expCur: expectedCurrent,
+        actCur,
+        trackId,
+        issueExist: "Live",
+        category,
+        health: Math.round(voltageHealth), // show voltage health here
+        powerLoss: Number(powerLossKW.toFixed(3)),
+        predictedLoss: Number(predictedLossKW.toFixed(3)),
+        idKey: `${trackId}-${fault}`,
       });
-    };
-
-    push('TOP', table.topPanels.current, topFaultStart);
-    push('BOTTOM', table.bottomPanels.current, bottomFaultStart);
+    });
   }
   return rows;
 }
 
 function filterRows(
   rows: DefectRow[],
-  filter: 'all'|'moderate'|'bad'|'resolved',
+  filter: 'all' | 'moderate' | 'bad' | 'resolved',
   resolved: Set<string>,
   opts?: { resolvedMeta: Record<string, { resolvedAt: string; category: 'BAD' | 'MODERATE' }>; start: string; end: string; category: 'all' | 'MODERATE' | 'BAD' }
 ): DefectRow[] {

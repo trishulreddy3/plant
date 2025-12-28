@@ -11,10 +11,10 @@ const PlantMonitor = () => {
   useEffect(() => {
     const currentUser = getCurrentUser();
     if (!currentUser || currentUser.role !== 'plant_admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
-    
+
     setUser(currentUser);
   }, [navigate]);
 

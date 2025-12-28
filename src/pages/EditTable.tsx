@@ -35,7 +35,7 @@ const EditTable = () => {
 
   useEffect(() => {
     if (!user || user.role !== 'plant_admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
     if (!table) {

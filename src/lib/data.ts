@@ -47,7 +47,7 @@ export const addActivityLog = (
     timestamp: new Date().toISOString(),
     adminEmail,
   };
-  
+
   logs.unshift(newLog); // Add to beginning for latest first
   saveActivityLogs(logs);
 };
@@ -78,6 +78,7 @@ export interface Panel {
   powerGenerated: number; // Calculated: V * I
   status: 'good' | 'average' | 'fault';
   state?: 'good' | 'repairing' | 'fault'; // New simulation state from backend
+  faultTimestamp?: string;
   lastUpdated: string;
 }
 
@@ -94,7 +95,7 @@ export const saveTables = (tables: Table[]) => {
 export const addTable = (companyId: string, panelsTop: number, panelsBottom: number, adminEmail?: string): Table => {
   const tables = getTables();
   const serialNumber = `TBL-${String(tables.length + 1).padStart(4, '0')}`;
-  
+
   const newTable: Table = {
     id: `table-${Date.now()}`,
     serialNumber,
@@ -103,25 +104,25 @@ export const addTable = (companyId: string, panelsTop: number, panelsBottom: num
     panelsBottom,
     createdAt: new Date().toISOString(),
   };
-  
+
   tables.push(newTable);
   saveTables(tables);
-  
+
   // Create panels for this table
   const panels: Panel[] = [];
-  
+
   // Create top panels
   for (let i = 1; i <= panelsTop; i++) {
     panels.push(createPanel(newTable.id, companyId, i, 'top'));
   }
-  
+
   // Create bottom panels
   for (let i = 1; i <= panelsBottom; i++) {
     panels.push(createPanel(newTable.id, companyId, i, 'bottom'));
   }
-  
+
   savePanels([...getPanels(), ...panels]);
-  
+
   // Log activity for super admin monitoring
   if (adminEmail) {
     addActivityLog(
@@ -135,7 +136,7 @@ export const addTable = (companyId: string, panelsTop: number, panelsBottom: num
       adminEmail
     );
   }
-  
+
   return newTable;
 };
 
@@ -160,12 +161,12 @@ export const createPanel = (tableId: string, companyId: string, index: number, p
   const currentVoltage = 35 + Math.random() * 5; // 35-40V
   const currentCurrent = 8 + Math.random() * 2; // 8-10A
   const powerGenerated = currentVoltage * currentCurrent;
-  
+
   let status: 'good' | 'average' | 'fault';
   if (powerGenerated >= 320) status = 'good';
   else if (powerGenerated >= 200) status = 'average';
   else status = 'fault';
-  
+
   return {
     id: `panel-${tableId}-${position}-${index}`,
     tableId,
@@ -193,19 +194,19 @@ export const getPanelsByTable = (tableId: string): Panel[] => {
 export const updatePanelData = (panelId: string) => {
   const panels = getPanels();
   const panelIndex = panels.findIndex(p => p.id === panelId);
-  
+
   if (panelIndex === -1) return;
-  
+
   const panel = panels[panelIndex];
   const currentVoltage = 35 + Math.random() * 5;
   const currentCurrent = 8 + Math.random() * 2;
   const powerGenerated = currentVoltage * currentCurrent;
-  
+
   let status: 'good' | 'average' | 'fault';
   if (powerGenerated >= 320) status = 'good';
   else if (powerGenerated >= 200) status = 'average';
   else status = 'fault';
-  
+
   panels[panelIndex] = {
     ...panel,
     currentVoltage: Math.round(currentVoltage * 10) / 10,
@@ -214,7 +215,7 @@ export const updatePanelData = (panelId: string) => {
     status,
     lastUpdated: new Date().toISOString(),
   };
-  
+
   savePanels(panels);
 };
 
@@ -222,7 +223,7 @@ export const updatePanelData = (panelId: string) => {
 export const migratePanels = () => {
   const panels = getPanels();
   const needsMigration = panels.some(panel => !('position' in panel));
-  
+
   if (needsMigration) {
     const migratedPanels = panels.map(panel => {
       if (!('position' in panel)) {
@@ -240,7 +241,7 @@ export const migratePanels = () => {
 export const initializeDemoData = () => {
   // Migrate existing panels first
   migratePanels();
-  
+
   const panels = getPanels();
   if (panels.length === 0) {
     // Create a demo table with 20 panels for the first company if it exists

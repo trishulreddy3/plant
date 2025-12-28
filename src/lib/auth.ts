@@ -10,6 +10,7 @@ export interface User {
   companyName?: string;
   companyId?: string;
   createdAt: string;
+  sessionId?: number;
 }
 
 export interface Company {
@@ -23,13 +24,8 @@ export interface Company {
   createdAt: string;
 }
 
-// Super Admin credentials (hardcoded for demo)
-const SUPER_ADMIN = {
-  email: 'super_admin@microsyslogic.com',
-  password: 'super_admin_password',
-  role: 'super_admin' as UserRole,
-  companyName: 'microsyslogic',
-};
+// Super Admin credentials Removed - using backend auth
+
 
 // Session-based user management with persistent storage
 let currentUser: User | null = null;
@@ -44,13 +40,13 @@ const loadStoredUser = (): User | null => {
       const now = new Date().getTime();
       const storedTime = new Date(user.loginTime).getTime();
       const hoursSinceLogin = (now - storedTime) / (1000 * 60 * 60);
-      
+
       // If login was more than 24 hours ago, consider it expired
       if (hoursSinceLogin > 24) {
         localStorage.removeItem('currentUser');
         return null;
       }
-      
+
       return user;
     }
   } catch (error) {
@@ -69,17 +65,17 @@ export const getCurrentUser = (): User | null => {
 
 export const setCurrentUser = (user: User | null) => {
   currentUser = user;
-  
+
   if (user) {
     // Add login timestamp
     const userWithTimestamp = {
       ...user,
       loginTime: new Date().toISOString()
     };
-    
+
     // Store user in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(userWithTimestamp));
-    
+
     // Also set a secure cookie for additional security
     const cookieExpiry = new Date();
     cookieExpiry.setTime(cookieExpiry.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
@@ -91,170 +87,84 @@ export const setCurrentUser = (user: User | null) => {
   }
 };
 
-// Check backend credentials
-const checkBackendCredentials = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string }> => {
-  try {
-    // Import the backend functions
-    const { getAllCompanies, getAdminCredentials, getUsers } = await import('./realFileSystem');
-    
-    // Get all companies from backend
-    const backendCompanies = await getAllCompanies();
-    
-    // Filter companies by name if provided
-    const companiesToCheck = companyName 
-      ? backendCompanies.filter(company => 
-          company.name.toLowerCase() === companyName.toLowerCase()
-        )
-      : backendCompanies;
-    
-    // If company name was provided but no matching company found
-    if (companyName && companiesToCheck.length === 0) {
-      return { success: false, error: 'Company not found' };
-    }
-    
-    // Check each company for matching credentials
-    for (const company of companiesToCheck) {
-      try {
-        // If role is selected, check only that role
-        if (selectedRole === 'admin') {
-          // Check admin credentials
-          const adminCreds = await getAdminCredentials(company.id);
-          if (adminCreds && adminCreds.email === email && adminCreds.password === password) {
-            const user: User = {
-              id: `admin-${company.id}`,
-              email: adminCreds.email,
-              role: 'plant_admin',
-              companyName: company.name,
-              companyId: company.id,
-              createdAt: adminCreds.createdAt,
-            };
-            return { success: true, user };
-          }
-        } else if (selectedRole === 'technician') {
-          // Check technician credentials (strict by role) — use technicians endpoint directly
-          const { getTechnicians } = await import('./realFileSystem');
-          const technicians = await getTechnicians(company.id);
-          const foundUser = technicians.find(t => t.email === email && t.password === password && t.role === 'technician');
-          if (foundUser) {
-            const user: User = {
-              id: foundUser.id,
-              email: foundUser.email,
-              role: 'technician',
-              companyName: company.name,
-              companyId: company.id,
-              createdAt: foundUser.createdAt,
-            };
-            return { success: true, user };
-          }
-        } else if (selectedRole === 'management') {
-          // Check management credentials (prefer aggregated users; fallback to technicians.json if needed)
-          let users: any[] = [];
-          try {
-            users = await getUsers(company.id);
-          } catch (e) {
-            const { getTechnicians } = await import('./realFileSystem');
-            users = await getTechnicians(company.id);
-          }
-          const foundUser = users.find(t => t.email === email && t.password === password && t.role === 'management');
-          if (foundUser) {
-            const user: User = {
-              id: foundUser.id,
-              email: foundUser.email,
-              role: 'management',
-              companyName: company.name,
-              companyId: company.id,
-              createdAt: foundUser.createdAt,
-            };
-            return { success: true, user };
-          }
-        } else {
-          // No role selected, check both
-          // Check admin credentials first
-          const adminCreds = await getAdminCredentials(company.id);
-          if (adminCreds && adminCreds.email === email && adminCreds.password === password) {
-            const user: User = {
-              id: `admin-${company.id}`,
-              email: adminCreds.email,
-              role: 'plant_admin',
-              companyName: company.name,
-              companyId: company.id,
-              createdAt: adminCreds.createdAt,
-            };
-            return { success: true, user };
-          }
-          
-          // Check technician/management credentials (prefer aggregated; fallback to technicians only)
-          let users: any[] = [];
-          try {
-            users = await getUsers(company.id);
-          } catch (e) {
-            const { getTechnicians } = await import('./realFileSystem');
-            users = await getTechnicians(company.id);
-          }
-          const foundUser = users.find(t => t.email === email && t.password === password);
-          if (foundUser) {
-            // Use the actual role from the found user (technician or management)
-            const userRole = foundUser.role === 'management' ? 'management' : 'technician';
-            const user: User = {
-              id: foundUser.id,
-              email: foundUser.email,
-              role: userRole,
-              companyName: company.name,
-              companyId: company.id,
-              createdAt: foundUser.createdAt,
-            };
-            return { success: true, user };
-          }
-        }
-      } catch (error) {
-        // Continue checking other companies if one fails
-        console.warn(`Error checking company ${company.id}:`, error);
-      }
-    }
-    
-    return { success: false, error: selectedRole ? `Invalid ${selectedRole} credentials` : 'Invalid credentials' };
-  } catch (error) {
-    console.error('Backend credential check failed:', error);
-    return { success: false, error: 'Backend authentication failed' };
-  }
-};
+// checkBackendCredentials removed as we now call the API directly in login()
 
+
+// This will be replaced in next steps after verifying server.js
+// Only replacing to avoid error, but I will do the comprehensive refactor in next steps.
+// Use checkBackendCredentials logic which I will REWRITE to use the API directly.
 export const login = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
-    // Check Super Admin (hardcoded)
-    if (email === SUPER_ADMIN.email && password === SUPER_ADMIN.password) {
-      // For super admin, company name should be 'microsyslogic' (case insensitive)
-      if (companyName && companyName.toLowerCase() !== SUPER_ADMIN.companyName.toLowerCase()) {
-        return { success: false, error: 'Invalid company name for super admin' };
-      }
-      
+    // Use the backend API directly via realFileSystem or fetch
+    // I will implement a direct API call here since checkBackendCredentials is convoluted
+
+    const { getApiBaseUrl } = await import('./realFileSystem');
+    const API_BASE_URL = getApiBaseUrl();
+
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, companyName, role: selectedRole })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.user) {
+      // Map backend user to frontend User type if needed
       const user: User = {
-        id: 'super-admin-1',
-        email: SUPER_ADMIN.email,
-        role: 'super_admin',
-        companyName: SUPER_ADMIN.companyName,
+        id: data.user.id || data.user.userId,
+        email: data.user.email,
+        role: data.user.role,
+        companyName: data.user.companyName,
+        companyId: data.user.companyId,
         createdAt: new Date().toISOString(),
+        sessionId: data.user.sessionId
       };
+
+      // Legacy mapping: if role is 'admin' and not super admin, map to 'plant_admin'?
+      // The frontend expects 'plant_admin' in some places?
+      // Let's check UserRole type: 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'admin'
+      // If backend returns 'admin', we might want to keep it or map it.
+      // UnifiedLogin handles: super_admin, plant_admin, technician, management.
+      // Server returns: 'super_admin', 'admin', 'management', 'technician'.
+
+      if (user.role === 'admin') {
+        if (user.email === 'superadmin@gmail.com' || user.companyName === 'microsyslogic') {
+          user.role = 'super_admin';
+        } else {
+          user.role = 'plant_admin';
+        }
+      }
+
       setCurrentUser(user);
       return { success: true, user };
     }
 
-    // Check backend credentials first
-    const backendResult = await checkBackendCredentials(email, password, companyName, selectedRole);
-    if (backendResult.success) {
-      setCurrentUser(backendResult.user);
-      return { success: true, user: backendResult.user };
-    }
-
-    // Skip localStorage fallback - only use backend authentication
-    return { success: false, error: selectedRole ? `Invalid ${selectedRole} credentials` : 'Invalid credentials' };
+    return { success: false, error: data.error || data.message || 'Login failed' };
   } catch (error) {
     console.error('❌ Login error:', error);
     return { success: false, error: 'Login failed. Please try again.' };
   }
 };
 
-export const logout = () => {
+export const logout = async () => {
+  const user = getCurrentUser();
+  if (user) {
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { getApiBaseUrl } = await import('./realFileSystem');
+      const API_BASE_URL = getApiBaseUrl();
+
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, sessionId: user.sessionId })
+      });
+      console.log(`[LOGOUT] Session ${user.sessionId} closed for ${user.id}`);
+    } catch (e) {
+      console.warn('Logout backend call failed', e);
+    }
+  }
   clearAllStoredData();
   currentUser = null;
 };

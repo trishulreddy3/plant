@@ -33,22 +33,22 @@ const AddTable = () => {
   // Real-time validation function
   const validatePanelCount = (field: 'panelsTop' | 'panelsBottom', value: string) => {
     const numValue = parseInt(value);
-    
+
     if (value === '') {
       setValidationErrors(prev => ({ ...prev, [field]: '' }));
       return;
     }
-    
+
     if (isNaN(numValue) || numValue < 0) {
       setValidationErrors(prev => ({ ...prev, [field]: 'Must be a positive number' }));
       return;
     }
-    
+
     if (numValue > 20) {
       setValidationErrors(prev => ({ ...prev, [field]: 'Maximum 20 panels allowed per row' }));
       return;
     }
-    
+
     setValidationErrors(prev => ({ ...prev, [field]: '' }));
   };
 
@@ -109,7 +109,7 @@ const AddTable = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user || !user.companyId) {
       toast({
         title: 'Error',
@@ -195,7 +195,7 @@ const AddTable = () => {
   };
 
   if (!user || user.role !== 'plant_admin') {
-    navigate('/admin-login');
+    navigate('/login');
     return null;
   }
 
@@ -278,186 +278,186 @@ const AddTable = () => {
         }
       `}</style>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-      <div className="container max-w-2xl mx-auto py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/plant-admin-dashboard/infrastructure')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Infrastructure
-        </Button>
+        <div className="container max-w-2xl mx-auto py-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/plant-admin-dashboard/infrastructure')}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Infrastructure
+          </Button>
 
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Plus className="h-6 w-6 text-primary" />
-              Add New Table
-            </CardTitle>
-            <CardDescription>
-              Configure panel layout for the new table. Maximum 20 panels per row (top and bottom). Serial number will be generated automatically.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Table Number (auto sequence) */}
-              <div className="space-y-2">
-                <Label>Table Number (continues sequence)</Label>
-                <Input value={nextTableNumber || '—'} readOnly className="h-12 bg-muted font-semibold" />
-              </div>
-
-              <div className="space-y-4">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <Plus className="h-6 w-6 text-primary" />
+                Add New Table
+              </CardTitle>
+              <CardDescription>
+                Configure panel layout for the new table. Maximum 20 panels per row (top and bottom). Serial number will be generated automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Table Number (auto sequence) */}
                 <div className="space-y-2">
-                  <Label htmlFor="panelsTop">Number of Panels (Top Row)</Label>
-                  <Input
-                    id="panelsTop"
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={formData.panelsTop}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, panelsTop: value });
-                      validatePanelCount('panelsTop', value);
-                    }}
-                    placeholder="20"
-                    className={`h-12 ${validationErrors.panelsTop ? 'border-red-500 focus:border-red-500' : ''}`}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum 20 panels per row
-                  </p>
-                  {validationErrors.panelsTop && (
-                    <p className="text-xs text-red-500 font-medium">
-                      ⚠️ {validationErrors.panelsTop}
-                    </p>
-                  )}
+                  <Label>Table Number (continues sequence)</Label>
+                  <Input value={nextTableNumber || '—'} readOnly className="h-12 bg-muted font-semibold" />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="panelsBottom">Number of Panels (Bottom Row)</Label>
-                  <Input
-                    id="panelsBottom"
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={formData.panelsBottom}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, panelsBottom: value });
-                      validatePanelCount('panelsBottom', value);
-                    }}
-                    placeholder="20"
-                    className={`h-12 ${validationErrors.panelsBottom ? 'border-red-500 focus:border-red-500' : ''}`}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum 20 panels per row
-                  </p>
-                  {validationErrors.panelsBottom && (
-                    <p className="text-xs text-red-500 font-medium">
-                      ⚠️ {validationErrors.panelsBottom}
-                    </p>
-                  )}
-                </div>
-
-                {/* Panel Specifications */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-primary" />
-                    Panel Specifications
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
-                      <Input
-                        id="voltagePerPanel"
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={formData.voltagePerPanel}
-                        onChange={(e) => setFormData({ ...formData, voltagePerPanel: e.target.value })}
-                        placeholder="20"
-                        required
-                        className="h-12"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Default: {plantDetails?.voltagePerPanel || 20}V
+                  <div className="space-y-2">
+                    <Label htmlFor="panelsTop">Number of Panels (Top Row)</Label>
+                    <Input
+                      id="panelsTop"
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={formData.panelsTop}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, panelsTop: value });
+                        validatePanelCount('panelsTop', value);
+                      }}
+                      placeholder="20"
+                      className={`h-12 ${validationErrors.panelsTop ? 'border-red-500 focus:border-red-500' : ''}`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum 20 panels per row
+                    </p>
+                    {validationErrors.panelsTop && (
+                      <p className="text-xs text-red-500 font-medium">
+                        ⚠️ {validationErrors.panelsTop}
                       </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPerPanel">Current per Panel (A)</Label>
-                      <Input
-                        id="currentPerPanel"
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={formData.currentPerPanel}
-                        onChange={(e) => setFormData({ ...formData, currentPerPanel: e.target.value })}
-                        placeholder="10"
-                        required
-                        className="h-12"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Default: {plantDetails?.currentPerPanel || 10}A
-                      </p>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Power Calculation */}
-                  {formData.voltagePerPanel && formData.currentPerPanel && (
+                  <div className="space-y-2">
+                    <Label htmlFor="panelsBottom">Number of Panels (Bottom Row)</Label>
+                    <Input
+                      id="panelsBottom"
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={formData.panelsBottom}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, panelsBottom: value });
+                        validatePanelCount('panelsBottom', value);
+                      }}
+                      placeholder="20"
+                      className={`h-12 ${validationErrors.panelsBottom ? 'border-red-500 focus:border-red-500' : ''}`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum 20 panels per row
+                    </p>
+                    {validationErrors.panelsBottom && (
+                      <p className="text-xs text-red-500 font-medium">
+                        ⚠️ {validationErrors.panelsBottom}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Panel Specifications */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Panel Specifications
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
+                        <Input
+                          id="voltagePerPanel"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={formData.voltagePerPanel}
+                          onChange={(e) => setFormData({ ...formData, voltagePerPanel: e.target.value })}
+                          placeholder="20"
+                          required
+                          className="h-12"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: {plantDetails?.voltagePerPanel || 20}V
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPerPanel">Current per Panel (A)</Label>
+                        <Input
+                          id="currentPerPanel"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={formData.currentPerPanel}
+                          onChange={(e) => setFormData({ ...formData, currentPerPanel: e.target.value })}
+                          placeholder="10"
+                          required
+                          className="h-12"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: {plantDetails?.currentPerPanel || 10}A
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Power Calculation */}
+                    {formData.voltagePerPanel && formData.currentPerPanel && (
+                      <div className="p-4 bg-accent/20 rounded-lg border border-accent">
+                        <p className="text-sm font-semibold">Power per Panel</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {parseFloat(formData.voltagePerPanel || '0') * parseFloat(formData.currentPerPanel || '0')}W
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {(formData.panelsTop !== '' || formData.panelsBottom !== '') && (
                     <div className="p-4 bg-accent/20 rounded-lg border border-accent">
-                      <p className="text-sm font-semibold">Power per Panel</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {parseFloat(formData.voltagePerPanel || '0') * parseFloat(formData.currentPerPanel || '0')}W
+                      <p className="text-sm font-semibold">Total Panels</p>
+                      <p className="text-3xl font-bold text-primary">
+                        {(isNaN(parseInt(formData.panelsTop)) ? 0 : parseInt(formData.panelsTop)) + (isNaN(parseInt(formData.panelsBottom)) ? 0 : parseInt(formData.panelsBottom))}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Top: {formData.panelsTop} panels | Bottom: {formData.panelsBottom} panels
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Maximum capacity: 40 panels per table (20 top + 20 bottom)
                       </p>
                     </div>
                   )}
                 </div>
 
-                {(formData.panelsTop !== '' || formData.panelsBottom !== '') && (
-                  <div className="p-4 bg-accent/20 rounded-lg border border-accent">
-                    <p className="text-sm font-semibold">Total Panels</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {(isNaN(parseInt(formData.panelsTop)) ? 0 : parseInt(formData.panelsTop)) + (isNaN(parseInt(formData.panelsBottom)) ? 0 : parseInt(formData.panelsBottom))}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Top: {formData.panelsTop} panels | Bottom: {formData.panelsBottom} panels
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Maximum capacity: 40 panels per table (20 top + 20 bottom)
-                    </p>
-                  </div>
-                )}
-              </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 gradient-primary"
+                  disabled={loading || validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== ''}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {loading ? 'Loading...' : 'Create Table'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 gradient-primary" 
-                disabled={loading || validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== ''}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {loading ? 'Loading...' : 'Create Table'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Not Allowed Button - Shows when validation errors exist */}
+          {(validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== '') && (
+            <button className="not-allowed-button">
+              <span>Not allowed!</span>
+              <span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeMiterlimit="2" strokeLinejoin="round" fillRule="evenodd" clipRule="evenodd">
+                  <path fillRule="nonzero" d="m12.002 2.005c5.518 0 9.998 4.48 9.998 9.997 0 5.518-4.48 9.998-9.998 9.998-5.517 0-9.997-4.48-9.997-9.998 0-5.517 4.48-9.997 9.997-9.997zm0 1.5c-4.69 0-8.497 3.807-8.497 8.497s3.807 8.498 8.497 8.498 8.498-3.808 8.498-8.498-3.808-8.497-8.498-8.497zm0 7.425 2.717-2.718c.146-.146.339-.219.531-.219.404 0 .75.325.75.75 0 .193-.073.384-.219.531l-2.717 2.717 2.727 2.728c.147.147.22.339.22.531 0 .427-.349.75-.75.75-.192 0-.384-.073-.53-.219l-2.729-2.728-2.728 2.728c-.146.146-.338.219-.53.219-.401 0-.751-.323-.751-.75 0-.192.073-.384.22-.531l2.728-2.728-2.722-2.722c-.146-.147-.219-.338-.219-.531 0-.425.346-.749.75-.749.192 0 .385.073.531.219z"></path>
+                </svg>
+              </span>
+            </button>
+          )}
+        </div>
 
-        {/* Not Allowed Button - Shows when validation errors exist */}
-        {(validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== '') && (
-          <button className="not-allowed-button">
-            <span>Not allowed!</span>
-            <span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeMiterlimit="2" strokeLinejoin="round" fillRule="evenodd" clipRule="evenodd">
-                <path fillRule="nonzero" d="m12.002 2.005c5.518 0 9.998 4.48 9.998 9.997 0 5.518-4.48 9.998-9.998 9.998-5.517 0-9.997-4.48-9.997-9.998 0-5.517 4.48-9.997 9.997-9.997zm0 1.5c-4.69 0-8.497 3.807-8.497 8.497s3.807 8.498 8.497 8.498 8.498-3.808 8.498-8.498-3.808-8.497-8.498-8.497zm0 7.425 2.717-2.718c.146-.146.339-.219.531-.219.404 0 .75.325.75.75 0 .193-.073.384-.219.531l-2.717 2.717 2.727 2.728c.147.147.22.339.22.531 0 .427-.349.75-.75.75-.192 0-.384-.073-.53-.219l-2.729-2.728-2.728 2.728c-.146.146-.338.219-.53.219-.401 0-.751-.323-.751-.75 0-.192.073-.384.22-.531l2.728-2.728-2.722-2.722c-.146-.147-.219-.338-.219-.531 0-.425.346-.749.75-.749.192 0 .385.073.531.219z"></path>
-              </svg>
-            </span>
-          </button>
-        )}
+
       </div>
-
-      
-    </div>
     </>
   );
 };

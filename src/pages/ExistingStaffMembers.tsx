@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { AlertTriangle } from 'lucide-react';
 import { ArrowLeft, Users, Shield, Edit, Trash2, X, Search } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAllCompanies } from '@/lib/realFileSystem';
+import { getAllCompanies, getApiBaseUrl } from '@/lib/realFileSystem';
 import BackButton from '@/components/ui/BackButton';
 
 interface StaffEntry {
@@ -33,12 +33,12 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
 
   useEffect(() => {
     if (!user) {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
     // Only enforce strict role check when not embedded. Allow 'plant_admin' or 'admin'.
     if (!embedded && user.role !== 'plant_admin' && user.role !== 'admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
 
@@ -58,10 +58,10 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
 
         if (resolvedCompanyId) {
           // Fetch entries from the entries endpoint
-          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://plant-9uk7.onrender.com/api');
+          const API_BASE_URL = getApiBaseUrl();
           const response = await fetch(`${API_BASE_URL}/companies/${resolvedCompanyId}/entries`);
           console.log('🔍 API Response:', response.status, response.statusText);
-          
+
           if (response.ok) {
             let entries = await response.json();
             console.log('🔍 Loaded entries:', entries);
@@ -163,7 +163,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
 
   const handleDeleteConfirm = async () => {
     if (!selectedEntry) return;
-    
+
     // Check if confirmation name matches
     if (deleteConfirmation !== selectedEntry.name) {
       alert('Confirmation name does not match. Please type the exact name.');
@@ -174,7 +174,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
       // Get companyId
       const companies = await getAllCompanies();
       const company = companies.find(c => c.name === user.companyName);
-      
+
       if (!company || !company.id) {
         throw new Error('Company not found');
       }
@@ -269,8 +269,8 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-12"
                 />
-                        </div>
-                      </div>
+              </div>
+            </div>
 
             {loading ? (
               <div className="text-center py-12">
@@ -280,9 +280,9 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
             ) : filteredEntries.length > 0 ? (
               <>
                 <div className="grid gap-3 md:hidden">
-                  {filteredEntries.map((entry) => (
+                  {filteredEntries.map((entry, index) => (
                     <div
-                      key={entry.id}
+                      key={entry.id || `staff-mobile-${index}`}
                       className={`rounded-lg border ${selectedEntry?.id === entry.id ? 'bg-blue-700 text-white border-blue-800' : 'bg-white border-gray-200'} p-4 shadow-sm`}
                       onClick={() => handleRowClick(entry)}
                     >
@@ -321,27 +321,26 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                       </thead>
                       <tbody>
                         {filteredEntries.map((entry, index) => (
-                          <tr 
-                            key={entry.id}
+                          <tr
+                            key={entry.id || `staff-desktop-${index}`}
                             onClick={() => handleRowClick(entry)}
-                            className={`cursor-pointer transition-all border-b border-gray-200 ${
-                              selectedEntry?.id === entry.id 
-                                ? 'bg-blue-700 text-white border-l-4 border-l-blue-900 shadow-lg' 
-                                : index % 2 === 0 
-                                  ? 'bg-blue-50 hover:bg-blue-100' 
-                                  : 'bg-blue-200 hover:bg-blue-300'
-                            }`}
+                            className={`cursor-pointer transition-all border-b border-gray-200 ${selectedEntry?.id === entry.id
+                              ? 'bg-blue-700 text-white border-l-4 border-l-blue-900 shadow-lg'
+                              : index % 2 === 0
+                                ? 'bg-blue-50 hover:bg-blue-100'
+                                : 'bg-blue-200 hover:bg-blue-300'
+                              }`}
                           >
                             <td className={`py-3 px-4 font-medium border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-900'}`}>{entry.companyName}</td>
                             <td className={`py-3 px-4 border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.name}</td>
                             <td className="py-3 px-4 border-r border-gray-200">
-                              <Badge 
-                                variant="outline" 
+                              <Badge
+                                variant="outline"
                                 className={
                                   selectedEntry?.id === entry.id ? 'border-white text-white bg-white/20' :
-                                  entry.role === 'management' ? 'border-green-600 text-green-700 bg-green-50' :
-                                  entry.role === 'admin' ? 'border-purple-600 text-purple-700 bg-purple-50' :
-                                  'border-blue-600 text-blue-700 bg-blue-50'
+                                    entry.role === 'management' ? 'border-green-600 text-green-700 bg-green-50' :
+                                      entry.role === 'admin' ? 'border-purple-600 text-purple-700 bg-purple-50' :
+                                        'border-blue-600 text-blue-700 bg-blue-50'
                                 }
                               >
                                 {entry.role.charAt(0).toUpperCase() + entry.role.slice(1)}
@@ -350,10 +349,10 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                             <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.email}</td>
                             <td className={`py-3 px-4 whitespace-nowrap border-r border-gray-200 ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-700'}`}>{entry.phoneNumber || 'N/A'}</td>
                             <td className={`py-3 px-4 whitespace-nowrap ${selectedEntry?.id === entry.id ? 'text-white' : 'text-gray-600'}`}>
-                              {new Date(entry.createdAt).toLocaleDateString('en-US', { 
-                                year: 'numeric', 
-                                month: 'short', 
-                                day: 'numeric' 
+                              {new Date(entry.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
                               })}
                             </td>
                           </tr>
@@ -369,7 +368,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                 <p className="text-muted-foreground mb-4">No staff members found matching "{searchQuery}"</p>
                 <Button onClick={() => setSearchQuery('')} variant="outline">
                   Clear Search
-                        </Button>
+                </Button>
               </div>
             ) : (
               <div className="text-center py-12">
@@ -403,7 +402,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                   <p className="text-sm text-white/90">{selectedEntry.email} • {selectedEntry.role.charAt(0).toUpperCase() + selectedEntry.role.slice(1)}</p>
                 )}
               </div>
-              
+
               <div className="flex gap-3">
                 <Button
                   onClick={handleEdit}
@@ -465,8 +464,8 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
             <CardContent className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-gray-700 mb-2">
-                  You're about to permanently delete selected staff entries from the Solar Panel Analysis system. 
-                  This action is irreversible and will remove all associated credentials, access permissions, 
+                  You're about to permanently delete selected staff entries from the Solar Panel Analysis system.
+                  This action is irreversible and will remove all associated credentials, access permissions,
                   and historical activity logs.
                 </p>
                 <p className="text-sm font-semibold text-gray-900 mt-3 mb-2">
@@ -476,7 +475,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
                   <p className="font-mono font-semibold text-lg text-gray-900">{selectedEntry.name}</p>
                 </div>
                 <p className="text-xs text-gray-600 italic">
-                  Once deleted, this staff entry cannot be recovered. Please ensure you have reviewed all 
+                  Once deleted, this staff entry cannot be recovered. Please ensure you have reviewed all
                   dependencies and access logs before proceeding.
                 </p>
               </div>
@@ -518,7 +517,7 @@ const ExistingStaffMembers = ({ embedded = false, onAddStaff }: { embedded?: boo
         </div>
       )}
 
-      
+
     </div>
   );
 };
