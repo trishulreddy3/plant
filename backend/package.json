@@ -8,7 +8,6 @@
     "start:secure": "node server-secure.js",
     "dev": "nodemon server.js",
     "dev:secure": "nodemon server-secure.js",
-    "migrate-passwords": "node scripts/migrate-passwords.js",
     "test:security": "node scripts/security-test.js"
   },
   "dependencies": {
@@ -21,7 +20,8 @@
     "express-session": "^1.18.2",
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.0.2"
   },
   "devDependencies": {
     "axios": "^1.12.2",
