@@ -1,6 +1,11 @@
 const express = require('express');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env.development') });
+const dotenv = require('dotenv');
+// Load environment variables
+// Try loading specific development env file if present
+dotenv.config({ path: path.join(__dirname, '../.env.development') });
+// Also load default .env for local overrides or if the above file is missing
+dotenv.config();
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -23,6 +28,7 @@ const Ticket = require('./models/Ticket');
 const LoginCredentials = require('./models/LoginCredentials');
 const LoginDetails = require('./models/LoginDetails');
 const NodeFaultStatus = require('./models/NodeFaultStatus');
+const LiveData = require('./models/LiveData');
 
 const fs = require('fs');
 const logStream = fs.createWriteStream(path.join(__dirname, 'server_debug.txt'), { flags: 'a' });
@@ -474,6 +480,17 @@ app.post('/api/companies', async (req, res) => {
 });
 
 
+app.get('/api/companies/:companyId/live-data', async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const records = await LiveData.find({ companyId }).sort({ node: 1 });
+    res.json(records);
+  } catch (error) {
+    console.error('Error fetching flat live data:', error);
+    res.status(500).json({ error: 'Failed to fetch live data' });
+  }
+});
+
 // New API routes for Node Fault Status snapshot and history
 app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
   try {
@@ -481,29 +498,42 @@ app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
     const company = await Company.findOne({ companyId });
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
-    const pd = company.plantDetails || { live_data: [] };
+    const pd = company.plantDetails || {};
     const vp = pd.voltagePerPanel || 20;
 
-    const snapshot = (pd.live_data || []).map(table => {
+    const tables = await LiveData.find({ companyId });
+
+    const snapshot = tables.map(record => {
       const row = {
-        time: table.time || new Date(),
-        node: table.node || table.serialNumber || 'TBL',
+        time: record.time || new Date(),
+        node: record.node || 'TBL',
       };
 
-      (table.panelVoltages || []).forEach((v, i) => {
+      const recordObj = record.toObject();
+      const pVoltKeys = Object.keys(recordObj)
+        .filter(k => /^p\d+_v$/.test(k))
+        .sort((a, b) => {
+          const ma = a.match(/\d+/);
+          const mb = b.match(/\d+/);
+          const na = ma ? parseInt(ma[0]) : 0;
+          const nb = mb ? parseInt(mb[0]) : 0;
+          return na - nb;
+        });
+
+      pVoltKeys.forEach((k, i) => {
+        const v = recordObj[k];
         const h = (v / vp) * 100;
         let status = 'good';
         if (h < 50) status = 'bad';
         else if (h < 98) status = 'moderate';
-        // Use 2-digit padding (p01, p02...) so database browsers sort them correctly
-        const pNum = (i + 1).toString().padStart(2, '0');
-        row[`p${pNum}`] = status;
+        row[`p${i + 1}`] = status;
       });
 
       return row;
     });
 
-    // Save to NodeFaultStatus collection for history tracking
+    // History tracking removed to prevent DB flooding on GET requests
+    /*
     try {
       for (const row of snapshot) {
         await NodeFaultStatus.findOneAndUpdate(
@@ -515,6 +545,7 @@ app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
     } catch (dbErr) {
       console.warn('History background save failed:', dbErr.message);
     }
+    */
 
     res.json(snapshot);
   } catch (error) {
@@ -548,11 +579,40 @@ app.get('/api/companies/:companyId', async (req, res) => {
       company.plantDetails = { live_data: [] };
     }
 
+    // Fetch live data from separate collection
+    const liveDataRecords = await LiveData.find({ companyId });
+
     // Return the plantDetails object
+    const plantObj = company.plantDetails.toObject ? company.plantDetails.toObject() : company.plantDetails;
+
+    // Convert flat fields back to panelVoltages array for frontend compatibility
+    const tables = liveDataRecords.map(record => {
+      const table = record.toObject();
+      const panelVoltages = [];
+      const keys = Object.keys(table)
+        .filter(k => /^p\d+_v$/.test(k))
+        .sort((a, b) => {
+          const ma = a.match(/\d+/);
+          const mb = b.match(/\d+/);
+          const na = ma ? parseInt(ma[0]) : 0;
+          const nb = mb ? parseInt(mb[0]) : 0;
+          return na - nb;
+        });
+      keys.forEach(k => panelVoltages.push(table[k]));
+
+      return {
+        ...table,
+        panelVoltages,
+        id: table.id || table.node || table._id.toString(), // Ensure ID for frontend
+        serialNumber: table.node // Alias for frontend
+      };
+    });
+
     const details = {
       companyId: company.companyId,
       companyName: company.companyName,
-      ...company.plantDetails.toObject ? company.plantDetails.toObject() : company.plantDetails
+      ...plantObj,
+      live_data: tables
     };
 
     res.json(details);
@@ -994,18 +1054,12 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Ensure plantDetails exists
-    if (!company.plantDetails) company.plantDetails = { live_data: [] };
-    if (!company.plantDetails.live_data) company.plantDetails.live_data = [];
-
-    const tables = company.plantDetails.live_data;
-    console.log(`DEBUG: POST /tables - Company ${companyId} has ${tables.length} tables in live_data.`);
-
-
+    // Find all existing records for this company to determine the next node number
+    const existingRecords = await LiveData.find({ companyId });
 
     // Find highest existing node number for sequence
     let maxNum = 0;
-    tables.forEach(t => {
+    existingRecords.forEach(t => {
       const parts = t.node ? t.node.split('-') : [];
       if (parts.length === 2) {
         const num = parseInt(parts[1]);
@@ -1018,8 +1072,7 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
 
     const topCount = parseInt(panelsTop) || 0;
     const bottomCount = parseInt(panelsBottom) || 0;
-    const totalCount = topCount + bottomCount;
-    const safeCount = totalCount > 0 ? totalCount : 10;
+    const safeCount = (topCount + bottomCount) || 10;
 
     // Use company defaults if available
     const vpp = company.plantDetails?.voltagePerPanel || 20;
@@ -1027,33 +1080,39 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
 
     const pData = generatePanelData(safeCount, vpp, cpp);
 
-    const newTable = {
+    // Create the Flat LiveData record
+    const flatRecord = {
+      companyId,
       node: serialNumber,
-      time: new Date().toISOString(),
-      temperature: pData.temperature,
-      lightIntensity: pData.lightIntensity,
+      time: new Date(),
+      temparature: pData.temparature,
+      lightintensity: pData.lightintensity,
       current: pData.current,
-      panelVoltages: pData.panelVoltages,
-
-      id: `table-${Date.now()}`,
-      serialNumber,
-      panelsCount: safeCount,
       panelsTop: topCount,
       panelsBottom: bottomCount
     };
 
-    tables.push(newTable);
-    company.plantDetails.lastUpdated = new Date().toISOString();
+    // Flatten voltages
+    pData.panelVoltages.forEach((v, i) => {
+      flatRecord[`p${i + 1}_v`] = v;
+    });
 
-    // Mark modified for mixed type
+    const newLiveData = new LiveData(flatRecord);
+    await newLiveData.save();
+
+    company.plantDetails.lastUpdated = new Date();
     company.markModified('plantDetails');
     await company.save();
 
     res.json({
       success: true,
-      message: 'Table created successfully',
-      table: newTable
+      message: 'Table created successfully in flat structure',
+      table: {
+        ...flatRecord,
+        panelVoltages: pData.panelVoltages // Return array to frontend
+      }
     });
+
   } catch (error) {
     console.error('Error creating table:', error);
     res.status(500).json({ error: 'Failed to create table' });
@@ -1065,26 +1124,24 @@ app.put('/api/companies/:companyId/tables/:tableId', async (req, res) => {
     const { serialNumber } = req.body;
 
     const company = await Company.findOne({ companyId });
-    if (!company || !company.plantDetails || !company.plantDetails.live_data) {
-      return res.status(404).json({ error: 'Company or Tables not found' });
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    // Update in LiveData collection
+    const updatedRecord = await LiveData.findOneAndUpdate(
+      { companyId, node: tableId },
+      { node: serialNumber, time: new Date() },
+      { new: true }
+    );
+
+    if (!updatedRecord) {
+      return res.status(404).json({ error: 'Table record not found in LiveData' });
     }
 
-    const table = company.plantDetails.live_data.find(t => t.id === tableId);
-    if (!table) {
-      return res.status(404).json({ error: 'Table not found' });
-    }
-
-    // Update fields if provided
-    if (serialNumber) {
-      table.node = serialNumber;
-      table.serialNumber = serialNumber;
-    }
-
-    company.plantDetails.lastUpdated = new Date().toISOString();
+    company.plantDetails.lastUpdated = new Date();
     company.markModified('plantDetails');
     await company.save();
 
-    res.json({ success: true, message: 'Table updated successfully', table });
+    res.json({ success: true, message: 'Table updated successfully in LiveData', table: updatedRecord });
   } catch (error) {
     console.error('Error updating table:', error);
     res.status(500).json({ error: 'Failed to update table', message: error.message });
@@ -1103,44 +1160,47 @@ app.delete('/api/companies/:companyId/tables/:tableId/panels/:panelId', async (r
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (!company.plantDetails || !company.plantDetails.live_data) {
-      return res.status(404).json({ error: 'Tables not found' });
-    }
-    const tableIndex = company.plantDetails.live_data.findIndex(t => t.id === tableId);
-    if (tableIndex === -1) {
-      return res.status(404).json({ error: 'Table not found', tableId });
+    const record = await LiveData.findOne({ companyId, node: tableId });
+    if (!record) {
+      return res.status(404).json({ error: 'Table record not found in LiveData', tableId });
     }
 
-    const table = company.plantDetails.live_data[tableIndex];
+    const recordObj = record.toObject();
+    const pVoltKeys = Object.keys(recordObj).filter(k => /^p\d+_v$/.test(k)).sort();
 
+    // Determine index to remove
     const parts = panelId.split('-P');
     let panelIndex = -1;
-
     if (parts.length > 1) {
       panelIndex = parseInt(parts[parts.length - 1]) - 1;
     } else {
       const pParts = panelId.split('-');
-      const last = pParts[pParts.length - 1];
-      panelIndex = parseInt(last);
+      panelIndex = parseInt(pParts[pParts.length - 1]);
+      if (isNaN(panelIndex)) panelIndex = -1;
     }
 
-    if (panelIndex >= 0 && table.panelVoltages && table.panelVoltages.length > panelIndex) {
-      table.panelVoltages.splice(panelIndex, 1);
-      table.panelsCount = table.panelVoltages.length;
+    if (panelIndex >= 0 && panelIndex < pVoltKeys.length) {
+      const voltages = pVoltKeys.map(k => recordObj[k]);
+      voltages.splice(panelIndex, 1);
 
-      // Update top/bottom counts proportionally (simplification)
-      if (table.panelsTop > 0 && panelIndex < table.panelsTop) {
-        table.panelsTop--;
-      } else if (table.panelsBottom > 0) {
-        table.panelsBottom--;
-      }
+      // Clear all pXX_v fields
+      pVoltKeys.forEach(k => {
+        record.set(k, undefined);
+      });
+
+      // Re-add refilled voltages
+      voltages.forEach((v, i) => {
+        const pNum = (i + 1).toString().padStart(2, '0');
+        record[`p${pNum}_v`] = v;
+      });
     } else {
       return res.status(400).json({ error: 'Invalid panel ID or index out of range' });
     }
 
-    company.plantDetails.lastUpdated = new Date().toISOString();
+    company.plantDetails.lastUpdated = new Date();
     company.markModified('plantDetails');
     await company.save();
+    await record.save();
 
     res.json({
       success: true,
@@ -1164,35 +1224,40 @@ app.put('/api/companies/:companyId/refresh-panel-data', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Update panel data for all tables
-    if (company.plantDetails && company.plantDetails.live_data) {
-      const vpp = company.plantDetails.voltagePerPanel || 20;
-      const cpp = company.plantDetails.currentPerPanel || 10;
+    const vpp = company.plantDetails.voltagePerPanel || 20;
+    const cpp = company.plantDetails.currentPerPanel || 10;
 
-      company.plantDetails.live_data.forEach(table => {
-        const count = (table.panelVoltages && table.panelVoltages.length) || table.panelsCount || 10;
-        const pData = generatePanelData(count, vpp, cpp);
+    const records = await LiveData.find({ companyId });
 
-        table.panelVoltages = pData.panelVoltages;
-        table.current = pData.current;
-        table.temperature = pData.temperature;
-        table.lightIntensity = pData.lightIntensity;
-        table.time = pData.time;
+    for (const record of records) {
+      const recordObj = record.toObject();
+      const pVoltKeys = Object.keys(recordObj).filter(k => /^p\d+_v$/.test(k)).sort();
+      const count = pVoltKeys.length || 10;
+      const pData = generatePanelData(count, vpp, cpp);
+
+      // Distribute new voltages
+      pVoltKeys.forEach((k, i) => {
+        record[k] = pData.panelVoltages[i];
+        record.markModified(k);
       });
 
-      company.plantDetails.lastUpdated = new Date().toISOString();
-      company.markModified('plantDetails');
-      await company.save();
-
-      res.json({
-        success: true,
-        message: 'Panel data refreshed (Flat Schema)',
-        updatedAt: company.plantDetails.lastUpdated,
-        tables: company.plantDetails.live_data.length
-      });
-    } else {
-      res.json({ success: true, message: 'No tables to update' });
+      record.current = pData.current;
+      record.temparature = pData.temparature;
+      record.lightintensity = pData.lightintensity;
+      record.time = pData.time;
+      await record.save();
     }
+
+    company.plantDetails.lastUpdated = new Date();
+    company.markModified('plantDetails');
+    await company.save();
+
+    res.json({
+      success: true,
+      message: 'Panel data refreshed in LiveData collection',
+      updatedAt: company.plantDetails.lastUpdated,
+      tables: records.length
+    });
   } catch (error) {
     console.error('Error refreshing panel data:', error);
     res.status(500).json({ error: 'Failed to refresh panel data' });
@@ -1211,9 +1276,9 @@ app.post('/api/companies/:companyId/tables/:tableId/add-panels', async (req, res
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    const table = (company.plantDetails.live_data || []).find(t => t.id === tableId);
-    if (!table) {
-      return res.status(404).json({ error: 'Table not found' });
+    const record = await LiveData.findOne({ companyId, node: tableId });
+    if (!record) {
+      return res.status(404).json({ error: 'Table record not found in LiveData' });
     }
 
     const vpp = company.plantDetails.voltagePerPanel || 20;
@@ -1221,29 +1286,28 @@ app.post('/api/companies/:companyId/tables/:tableId/add-panels', async (req, res
 
     const newPanelData = generatePanelData(panelCount, vpp, cpp);
 
-    if (!table.panelVoltages) table.panelVoltages = [];
-    if (newPanelData.panelVoltages) {
-      table.panelVoltages.push(...newPanelData.panelVoltages);
-    }
+    const recordObj = record.toObject();
+    const existingPVolts = Object.keys(recordObj).filter(k => /^p\d+_v$/.test(k)).sort();
+    const nextIndex = existingPVolts.length;
 
-    table.panelsCount = (table.panelsCount || 0) + panelCount;
-    if (position === 'top') {
-      table.panelsTop = (table.panelsTop || 0) + panelCount;
-    } else {
-      table.panelsBottom = (table.panelsBottom || 0) + panelCount;
-    }
+    newPanelData.panelVoltages.forEach((v, i) => {
+      const pNum = nextIndex + i + 1;
+      record[`p${pNum}_v`] = v;
+      record.markModified(`p${pNum}_v`);
+    });
 
-    const now = new Date().toISOString();
-    table.time = now;
+    const now = new Date();
+    record.time = now;
     company.plantDetails.lastUpdated = now;
 
     company.markModified('plantDetails');
     await company.save();
+    await record.save();
 
     res.json({
       success: true,
-      message: `${panelCount} panel(s) added successfully to ${position} row`,
-      table
+      message: `${panelCount} panel(s) added successfully to LiveData`,
+      table: record
     });
   } catch (error) {
     console.error('Error adding panels:', error);

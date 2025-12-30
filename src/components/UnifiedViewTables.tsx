@@ -13,7 +13,7 @@ import { getCurrentUser, logout } from '@/lib/auth';
 import { getTablesByCompany, getPanelsByCompany, updatePanelData, Panel, migratePanels, getPanels, savePanels, getTables, saveTables, addActivityLog } from '@/lib/data';
 import { getCompanies } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { getAllCompanies, getPlantDetails, deletePanel, refreshPanelData, addPanels, setPanelCurrent, getNodeFaultStatus } from '@/lib/realFileSystem';
+import { getAllCompanies, getPlantDetails, deletePanel, refreshPanelData, addPanels, setPanelCurrent, getNodeFaultStatus, getFlatLiveData } from '@/lib/realFileSystem';
 
 
 interface UnifiedViewTablesProps {
@@ -23,6 +23,7 @@ interface UnifiedViewTablesProps {
   backButtonText?: string;
   onBackClick?: () => void;
   hideHeader?: boolean;
+  refreshTrigger?: any;
 }
 
 const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
@@ -32,8 +33,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
   backButtonText = 'Back',
   onBackClick,
   hideHeader = false,
+  refreshTrigger
 }) => {
   const [nodeFaultStatusData, setNodeFaultStatusData] = useState<any[]>([]);
+  const [flatLiveData, setFlatLiveData] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const LAZY_MODE = false;
   const navigate = useNavigate();
@@ -98,7 +101,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     }, 5000); // 5 seconds
 
     return () => clearInterval(interval);
-  }, [user, companyId, dataLoaded]);
+  }, [user, companyId, dataLoaded, refreshTrigger]);
 
   const [lastRefreshed, setLastRefreshed] = useState<string>(new Date().toLocaleTimeString());
 
@@ -165,6 +168,16 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             console.error('Failed to load node fault status', err);
           }
 
+          // Fetch Flat Live Data for the exact table view
+          try {
+            const liveRes = await getFlatLiveData(selectedCompany.id);
+            if (liveRes) {
+              setFlatLiveData(liveRes);
+            }
+          } catch (err) {
+            console.error('Failed to load flat live data', err);
+          }
+
           // Generate panels from plant details (New Flat Schema)
           const generatedPanels: Panel[] = [];
 
@@ -176,9 +189,9 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             const vpp = plantDetails.voltagePerPanel || 20;
             vs.forEach((vol: number, i: number) => {
               const voltageHealth = (vol / vpp) * 100;
-              let status: 'good' | 'average' | 'fault' = 'good';
-              if (voltageHealth < 50) status = 'fault';
-              else if (voltageHealth < 98) status = 'average'; // 98% because variation is small
+              let status: 'good' | 'moderate' | 'bad' = 'good';
+              if (voltageHealth < 50) status = 'bad';
+              else if (voltageHealth < 98) status = 'moderate'; // 98% because variation is small
 
               generatedPanels.push({
                 id: `${table.serialNumber || table.node}-P${i + 1}`,
@@ -199,6 +212,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
           });
 
           setPanels(generatedPanels);
+          console.log('[UnifiedViewTables] Generated panels:', generatedPanels.length,
+            'Bad:', generatedPanels.filter(p => p.status === 'bad').length,
+            'Moderate:', generatedPanels.filter(p => p.status === 'moderate').length
+          );
           return;
         }
       }
@@ -324,9 +341,9 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
             vs.forEach((vol: number, i: number) => {
               const voltageHealth = (vol / vpp) * 100;
-              let status: 'good' | 'average' | 'fault' = 'good';
-              if (voltageHealth < 50) status = 'fault';
-              else if (voltageHealth < 98) status = 'average';
+              let status: 'good' | 'moderate' | 'bad' = 'good';
+              if (voltageHealth < 50) status = 'bad';
+              else if (voltageHealth < 98) status = 'moderate';
 
               generatedPanels.push({
                 id: `${table.serialNumber || table.node}-P${i + 1}`,
@@ -377,27 +394,22 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     setPanelToDelete(null);
   };
 
-  // Function to get panel image based on status (good/average/fault)
+  // Function to get panel image based on status (good/moderate/bad)
   const getPanelImage = (panel: Panel): string => {
     switch (panel.status) {
       case 'good':
-        return '/images/panels/image1.png';
-      case 'average':
-        return '/images/panels/image2.png';
-      case 'fault':
+        return '/images/panels/good.png';
+      case 'moderate':
+        return '/images/panels/moderate.png';
+      case 'bad':
       default:
-        return '/images/panels/image3.png';
+        return '/images/panels/bad.png';
     }
   };
 
-  // Function to identify main culprit panels in series connection
-  const getMainCulpritPanels = () => {
-    return [];
-  };
-
-  const culpritPanels = getMainCulpritPanels();
-  const faultPanels = [];
-  const repairingPanels = [];
+  const faultPanels = panels.filter(p => p.status === 'bad');
+  const repairingPanels = panels.filter(p => p.status === 'moderate');
+  const culpritPanels = faultPanels;
 
   // Series summary
   const seriesSummary = { culprits: 0, affected: 0 };
@@ -632,7 +644,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   onClick={() => setViewMode('table')}
                   className={viewMode === 'table' ? 'rounded-lg shadow-sm' : 'rounded-lg'}
                 >
-                  Node Fault Status
+                  Live Data Table
                 </Button>
               </div>
             </div>
@@ -672,7 +684,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                                 >
                                   <div className="w-12 h-16 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-inner">
                                     <img
-                                      src={p.status === 'fault' ? '/images/panels/bad.png' : p.status === 'average' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
+                                      src={p.status === 'bad' ? '/images/panels/bad.png' : p.status === 'moderate' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
                                       alt={p.status}
                                       className="absolute inset-0 w-full h-full object-cover"
                                     />
@@ -710,57 +722,66 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                     <table className="w-full text-sm text-left border-collapse">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="px-4 py-3 font-bold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r">Time</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 sticky left-[80px] bg-slate-50 z-10 border-r min-w-[120px]">Node/Table</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r">ObjectId</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Node/Table</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Time</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Temparature</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Light intensity</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Current</th>
                           {/* Dynamically find max p-index */}
                           {Array.from({
-                            length: Math.max(...nodeFaultStatusData.map(d =>
-                              Object.keys(d).filter(k => k.startsWith('p')).length
+                            length: Math.max(...flatLiveData.map(d =>
+                              Object.keys(d).filter(k => k.startsWith('p') && k.endsWith('_v')).length
                             ), 0)
                           }).map((_, i) => (
-                            <th key={i} className="px-3 py-3 font-bold text-slate-700 text-center min-w-[60px] border-r">P{i + 1}</th>
+                            <th key={i} className="px-4 py-3 font-bold text-slate-700 text-center min-w-[70px] border-r">P{i + 1}_v</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {nodeFaultStatusData.map((row, idx) => {
-                          const panelKeys = Object.keys(row).filter(k => /^p\d+$/.test(k)).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+                        {flatLiveData.map((row, idx) => {
+                          const pVoltKeys = Object.keys(row)
+                            .filter(k => /^p\d+_v$/.test(k))
+                            .sort((a, b) => {
+                              const na = parseInt(a.match(/\d+/)![0]);
+                              const nb = parseInt(b.match(/\d+/)![0]);
+                              return na - nb;
+                            });
 
                           return (
                             <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap sticky left-0 bg-white z-10 border-r text-[11px]">
-                                {new Date(row.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <td className="px-4 py-3 text-slate-500 font-mono text-[10px] border-r">
+                                {row._id}
                               </td>
-                              <td className="px-4 py-3 font-bold text-primary sticky left-[80px] bg-white z-10 border-r min-w-[120px]">
+                              <td className="px-4 py-3 font-bold text-primary border-r">
                                 {row.node}
                               </td>
-                              {panelKeys.map((pKey, sIdx) => {
-                                const status = row[pKey];
-                                return (
-                                  <td key={sIdx} className="px-3 py-3 text-center border-r">
-                                    <Badge
-                                      variant="outline"
-                                      className={`
-                                        w-10 h-6 flex items-center justify-center text-[10px] font-bold uppercase tracking-tighter
-                                        ${status === 'good' ? 'bg-green-50 text-green-700 border-green-200' :
-                                          status === 'moderate' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                            'bg-red-50 text-red-700 border-red-200'}
-                                      `}
-                                    >
-                                      {status.charAt(0)}
-                                    </Badge>
-                                  </td>
-                                );
-                              })}
+                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap border-r text-[11px]">
+                                {new Date(row.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600 border-r text-center">
+                                {row.temparature?.toFixed(1)}°C
+                              </td>
+                              <td className="px-4 py-3 text-slate-600 border-r text-center">
+                                {row.lightintensity}
+                              </td>
+                              <td className="px-4 py-3 text-slate-600 border-r text-center font-semibold">
+                                {row.current?.toFixed(2)}A
+                              </td>
+                              {pVoltKeys.map((pKey, sIdx) => (
+                                <td key={sIdx} className="px-4 py-3 text-center border-r bg-slate-50/30">
+                                  {row[pKey]?.toFixed(1)}V
+                                </td>
+                              ))}
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  {nodeFaultStatusData.length === 0 && (
+                  {flatLiveData.length === 0 && (
                     <div className="py-12 text-center text-muted-foreground italic">
-                      No status data available for the current snapshot.
+                      No live data available.
                     </div>
                   )}
                 </CardContent>
@@ -827,7 +848,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                         {panelsToShow.map((panel) => (
                           <div
                             key={panel.id}
-                            className={`flex items-center justify-between p-2 rounded-lg border ${panel.status === 'Fault'
+                            className={`flex items-center justify-between p-2 rounded-lg border ${panel.status === 'bad'
                               ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
                               : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
                               }`}
@@ -835,14 +856,14 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                             <div>
                               <p className="text-sm font-semibold">{panel.id}</p>
                               <p className="text-xs text-muted-foreground">
-                                {panel.tableNumber} - {panel.position} - {panel.panelNumber}
+                                {panel.tableId} - {panel.position} - {panel.name}
                               </p>
                             </div>
                             <Badge
-                              variant={panel.status === 'Fault' ? 'destructive' : 'secondary'}
-                              className={`text-xs ${panel.status === 'Repairing' ? 'bg-yellow-500 text-yellow-900' : ''}`}
+                              variant={panel.status === 'bad' ? 'destructive' : 'secondary'}
+                              className={`text-xs ${panel.status === 'moderate' ? 'bg-yellow-500 text-yellow-900' : ''}`}
                             >
-                              {panel.status}
+                              {panel.status === 'bad' ? 'Fault' : 'Moderate'}
                             </Badge>
                           </div>
                         ))}
@@ -891,15 +912,15 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                     return affected.length > 0 ? (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {affected.map((p) => (
-                          <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg border ${p.status === 'fault' ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'}`}>
+                          <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg border ${p.status === 'bad' ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'}`}>
                             <div>
                               <p className="text-sm font-semibold">{p.id}</p>
                               <p className="text-xs text-muted-foreground">{p.position.toUpperCase()} • {p.name}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold">{p.currentCurrent} A</p>
-                              <Badge variant={p.status === 'fault' ? 'destructive' : 'secondary'} className={`text-xs ${p.status !== 'fault' ? 'bg-yellow-500 text-yellow-900' : ''}`}>
-                                {p.status === 'fault' ? 'Fault' : 'Repairing'}
+                              <Badge variant={p.status === 'bad' ? 'destructive' : 'secondary'} className={`text-xs ${p.status !== 'bad' ? 'bg-yellow-500 text-yellow-900' : ''}`}>
+                                {p.status === 'bad' ? 'Fault' : 'Moderate'}
                               </Badge>
                             </div>
                           </div>
@@ -1121,8 +1142,8 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 const v = parseFloat(mfVoltage);
                 if (!Number.isFinite(v) || expectedVoltage <= 0) return null;
                 const health = Math.round((v / expectedVoltage) * 100);
-                let cat: 'good' | 'average' | 'fault' = 'good';
-                if (health >= 98) cat = 'good'; else if (health >= 50) cat = 'average'; else cat = 'fault';
+                let cat: 'good' | 'moderate' | 'bad' = 'good';
+                if (health >= 98) cat = 'good'; else if (health >= 50) cat = 'moderate'; else cat = 'bad';
                 return (
                   <div className="flex flex-col gap-2 pt-2 border-t mt-2">
                     <div className="flex items-center justify-between">
@@ -1133,12 +1154,12 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                           <p className="text-[10px] text-muted-foreground">Voltage Health</p>
                         </div>
                         <img
-                          src={cat === 'fault' ? '/images/panels/bad.png' : cat === 'average' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
+                          src={cat === 'bad' ? '/images/panels/bad.png' : cat === 'moderate' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
                           className="w-10 h-10 object-contain rounded border bg-white p-0.5"
                           alt={cat}
                         />
-                        <Badge variant={cat === 'fault' ? 'destructive' : (cat === 'average' ? 'secondary' : 'default')} className={cat === 'average' ? 'bg-yellow-500 text-yellow-900' : ''}>
-                          {cat === 'good' ? 'GOOD' : cat === 'average' ? 'MODERATE' : 'BAD'}
+                        <Badge variant={cat === 'bad' ? 'destructive' : (cat === 'moderate' ? 'secondary' : 'default')} className={cat === 'moderate' ? 'bg-yellow-500 text-yellow-900' : ''}>
+                          {cat === 'good' ? 'GOOD' : cat === 'moderate' ? 'MODERATE' : 'BAD'}
                         </Badge>
                       </div>
                     </div>

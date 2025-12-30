@@ -77,7 +77,8 @@ const companySchema = new mongoose.Schema({
     // 5. plant_details.json (The actual plant data)
     plantDetails: {
         plantPowerKW: Number,
-        live_data: [tableSchema],
+        voltagePerPanel: { type: Number, default: 20 },
+        currentPerPanel: { type: Number, default: 9.9 },
         lastUpdated: { type: Date, default: Date.now }
     }
 

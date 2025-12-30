@@ -207,7 +207,12 @@ const TechnicianDashboard = () => {
           </TabsList>
 
           <TabsContent value="overall" className="mt-6 min-h-0 overflow-auto">
-            <UnifiedViewTables userRole="user" hideHeader={true} companyId={companyId || undefined} />
+            <UnifiedViewTables
+              userRole="user"
+              hideHeader={true}
+              companyId={companyId || undefined}
+              refreshTrigger={plant?.lastUpdated || Date.now()}
+            />
           </TabsContent>
 
           <TabsContent value="defects" className="mt-6 min-h-0 overflow-auto">

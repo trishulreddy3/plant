@@ -76,8 +76,8 @@ export interface Panel {
   currentVoltage: number;
   currentCurrent: number;
   powerGenerated: number; // Calculated: V * I
-  status: 'good' | 'average' | 'fault';
-  state?: 'good' | 'repairing' | 'fault'; // New simulation state from backend
+  status: 'good' | 'moderate' | 'bad';
+  state?: 'good' | 'moderate' | 'bad'; // New simulation state from backend
   faultTimestamp?: string;
   lastUpdated: string;
 }
@@ -162,10 +162,10 @@ export const createPanel = (tableId: string, companyId: string, index: number, p
   const currentCurrent = 8 + Math.random() * 2; // 8-10A
   const powerGenerated = currentVoltage * currentCurrent;
 
-  let status: 'good' | 'average' | 'fault';
+  let status: 'good' | 'moderate' | 'bad';
   if (powerGenerated >= 320) status = 'good';
-  else if (powerGenerated >= 200) status = 'average';
-  else status = 'fault';
+  else if (powerGenerated >= 200) status = 'moderate';
+  else status = 'bad';
 
   return {
     id: `panel-${tableId}-${position}-${index}`,
@@ -202,10 +202,10 @@ export const updatePanelData = (panelId: string) => {
   const currentCurrent = 8 + Math.random() * 2;
   const powerGenerated = currentVoltage * currentCurrent;
 
-  let status: 'good' | 'average' | 'fault';
+  let status: 'good' | 'moderate' | 'bad';
   if (powerGenerated >= 320) status = 'good';
-  else if (powerGenerated >= 200) status = 'average';
-  else status = 'fault';
+  else if (powerGenerated >= 200) status = 'moderate';
+  else status = 'bad';
 
   panels[panelIndex] = {
     ...panel,

@@ -536,3 +536,152 @@
 [LOG] 2025-12-28T08:26:34.260Z [AUTH] User found: technicianinfo@gmail.com, role: technician, stored company: infosys
 [LOG] 2025-12-28T08:26:34.447Z [AUTH] Password match for technicianinfo@gmail.com: true
 [LOG] 2025-12-28T08:26:34.807Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:09:07.111Z MongoDB Connected: ac-khr4lim-shard-00-01.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:09:07.113Z MongoDB connection initialized.
+[LOG] 2025-12-28T11:09:07.121Z server running on port 5000
+[LOG] 2025-12-28T11:09:07.122Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T11:24:47.338Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:24:47.340Z MongoDB connection initialized.
+[LOG] 2025-12-28T11:24:47.345Z server running on port 5000
+[LOG] 2025-12-28T11:24:47.346Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T11:34:21.803Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:34:31.070Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:34:31.072Z MongoDB connection initialized.
+[LOG] 2025-12-28T11:34:31.077Z server running on port 5000
+[LOG] 2025-12-28T11:34:31.078Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T11:35:17.549Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:35:17.551Z MongoDB connection initialized.
+[LOG] 2025-12-28T11:35:17.557Z server running on port 5000
+[LOG] 2025-12-28T11:35:17.557Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T11:40:03.931Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:40:57.796Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:40:57.842Z [tickets/resolve] created ticket
+[LOG] 2025-12-28T11:40:57.846Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:06.353Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:41:06.397Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:13.886Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:41:13.930Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:17.948Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:18.572Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:18.944Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:20.152Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:21.664Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:41:23.938Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:41:23.984Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:50:15.733Z MongoDB Connected: ac-khr4lim-shard-00-02.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T11:50:15.735Z MongoDB connection initialized.
+[LOG] 2025-12-28T11:50:15.740Z server running on port 5000
+[LOG] 2025-12-28T11:50:15.741Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T11:50:25.805Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:50:46.312Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:50:46.358Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T11:51:05.244Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T11:51:05.287Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:02:23.769Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T17:02:23.770Z MongoDB connection initialized.
+[LOG] 2025-12-28T17:02:23.776Z server running on port 5000
+[LOG] 2025-12-28T17:02:23.776Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T17:03:20.804Z [AUTH] Attempting login for email: hemanth@gmail.com, company: infosys
+[LOG] 2025-12-28T17:03:20.827Z [AUTH] User found: hemanth@gmail.com, role: technician, stored company: infosys
+[LOG] 2025-12-28T17:03:20.939Z [AUTH] Password match for hemanth@gmail.com: false
+[LOG] 2025-12-28T17:03:30.761Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:03:32.507Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:04:00.159Z [panel_logic] updatePanelCurrent: table=TBL-0001, pos=bottom, idx=2, cur=2, vol=4
+[LOG] 2025-12-28T17:04:00.211Z [panel_logic] Setting p23_v = 4V and table current = 2A
+[LOG] 2025-12-28T17:12:14.170Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:12:23.960Z [panel_logic] updatePanelCurrent: table=TBL-0001, pos=bottom, idx=1, cur=3, vol=6.1
+[LOG] 2025-12-28T17:12:23.997Z [panel_logic] Setting p22_v = 6.1V and table current = 3A
+[LOG] 2025-12-28T17:15:13.469Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:15:28.386Z [panel_logic] updatePanelCurrent: table=TBL-0001, pos=top, idx=7, cur=3, vol=6.1
+[LOG] 2025-12-28T17:15:28.422Z [panel_logic] Setting p8_v = 6.1V and table current = 3A
+[LOG] 2025-12-28T17:15:39.872Z [panel_logic] resolvePanel: table=TBL-0001, pos=bottom, idx=1
+[LOG] 2025-12-28T17:15:39.912Z [panel_logic] Resolving p22_v to 20V
+[LOG] 2025-12-28T17:15:39.912Z [panel_logic] Recalculated table current: 1.98A
+[LOG] 2025-12-28T17:15:39.999Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T17:15:40.055Z [tickets/resolve] created ticket
+[LOG] 2025-12-28T17:15:40.059Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:15:42.578Z [panel_logic] resolvePanel: table=TBL-0001, pos=bottom, idx=2
+[LOG] 2025-12-28T17:15:42.617Z [panel_logic] Resolving p23_v to 20V
+[LOG] 2025-12-28T17:15:42.617Z [panel_logic] Recalculated table current: 3.02A
+[LOG] 2025-12-28T17:15:42.702Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-28T17:15:42.741Z [tickets/resolve] created ticket
+[LOG] 2025-12-28T17:15:42.746Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:15:52.464Z [panel_logic] updatePanelCurrent: table=TBL-0001, pos=top, idx=0, cur=3, vol=6.1
+[LOG] 2025-12-28T17:15:52.501Z [panel_logic] Setting p1_v = 6.1V and table current = 3A
+[LOG] 2025-12-28T17:31:28.711Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-28T17:43:57.044Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
+[LOG] 2025-12-28T17:43:57.064Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-28T17:43:57.156Z [AUTH] Password match for infosysadmin@gmail.com: true
+[ERROR] 2025-12-28T17:44:04.580Z Error creating table: ReferenceError: newTable is not defined
+[LOG] 2025-12-28T17:44:46.670Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T17:44:46.672Z MongoDB connection initialized.
+[LOG] 2025-12-28T17:44:46.678Z server running on port 5000
+[LOG] 2025-12-28T17:44:46.679Z SCADA Backend is fully operational.
+[LOG] 2025-12-28T17:44:56.875Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T17:45:01.743Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
+[LOG] 2025-12-28T17:45:01.764Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-28T17:45:01.879Z [AUTH] Password match for infosysadmin@gmail.com: true
+[ERROR] 2025-12-28T17:45:18.889Z Error creating table: ReferenceError: newTable is not defined
+[LOG] 2025-12-28T17:45:28.149Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-28T17:45:28.151Z MongoDB connection initialized.
+[LOG] 2025-12-28T17:45:28.156Z server running on port 5000
+[LOG] 2025-12-28T17:45:28.156Z SCADA Backend is fully operational.
+[ERROR] 2025-12-29T07:57:37.343Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:57:55.559Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:07.413Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:09.641Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:21.736Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:37.265Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:41.540Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:58:42.245Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:59:02.566Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:59:04.239Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:59:33.541Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T07:59:42.543Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:20:28.629Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:00.455Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:00.502Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:12.749Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:20.118Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:32.211Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:42.525Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:21:55.538Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:22:02.525Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:22:24.214Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:22:42.539Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:23:01.516Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:23:02.221Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:23:38.213Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[ERROR] 2025-12-29T09:23:42.553Z Error reading companies: MongoServerSelectionError: getaddrinfo ENOTFOUND ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net
+[LOG] 2025-12-29T09:39:18.803Z MongoDB Connected: ac-khr4lim-shard-00-01.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-29T09:39:18.809Z MongoDB connection initialized.
+[LOG] 2025-12-29T09:39:18.838Z server running on port 5000
+[LOG] 2025-12-29T09:39:18.841Z SCADA Backend is fully operational.
+[LOG] 2025-12-29T09:43:44.688Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosyassss
+[LOG] 2025-12-29T09:43:44.733Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-29T09:43:44.734Z [AUTH] Company mismatch: infosys vs infosyassss
+[LOG] 2025-12-29T09:44:42.385Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
+[LOG] 2025-12-29T09:44:42.429Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-29T09:44:42.674Z [AUTH] Password match for infosysadmin@gmail.com: true
+[LOG] 2025-12-29T09:46:20.340Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
+[LOG] 2025-12-29T09:46:20.386Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-29T09:46:20.709Z [AUTH] Password match for infosysadmin@gmail.com: true
+[LOG] 2025-12-29T09:47:10.026Z [AUTH] Attempting login for email: technicianinfo@gmail.com, company: infosys
+[LOG] 2025-12-29T09:47:10.383Z [AUTH] User found: technicianinfo@gmail.com, role: technician, stored company: infosys
+[LOG] 2025-12-29T09:47:10.732Z [AUTH] Password match for technicianinfo@gmail.com: true
+[LOG] 2025-12-29T09:47:12.004Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-29T09:48:46.472Z [panel_logic] updatePanelCurrent: table=TBL-0001, pos=top, idx=2, cur=3, vol=6.1
+[LOG] 2025-12-29T09:48:46.679Z [panel_logic] Setting p3_v = 6.1V and table current = 3A
+[LOG] 2025-12-29T09:50:16.938Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-29T09:50:18.836Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-29T09:50:22.068Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-29T09:50:28.170Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-29T09:50:53.915Z [panel_logic] resolvePanel: table=TBL-0001, pos=top, idx=0
+[LOG] 2025-12-29T09:50:54.051Z [panel_logic] Resolving p1_v to 20V
+[LOG] 2025-12-29T09:50:54.053Z [panel_logic] Recalculated table current: 3.02A
+[LOG] 2025-12-29T09:50:54.282Z [tickets/resolve] companyId: company-1766814585804 body: [object Object]
+[LOG] 2025-12-29T09:50:54.387Z [tickets/resolve] created ticket
+[LOG] 2025-12-29T09:50:54.391Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T11:40:24.096Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
+[LOG] 2025-12-30T11:40:24.123Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
+[LOG] 2025-12-30T11:40:24.220Z [AUTH] Password match for infosysadmin@gmail.com: true

@@ -257,6 +257,10 @@ export const getNodeFaultStatus = async (companyId: string) => {
   return await apiCall(`/companies/${companyId}/node-fault-status`);
 };
 
+export const getFlatLiveData = async (companyId: string) => {
+  return await apiCall(`/companies/${companyId}/live-data`);
+};
+
 export const getNodeFaultHistory = async (companyId: string) => {
   return await apiCall(`/companies/${companyId}/node-fault-history`);
 };
