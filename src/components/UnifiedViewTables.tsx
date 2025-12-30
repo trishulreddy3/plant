@@ -53,14 +53,14 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
   const [showAddPanelDialog, setShowAddPanelDialog] = useState(false);
   const [addPanelData, setAddPanelData] = useState<{
     tableId: string;
-    position: 'top' | 'bottom';
+    position: string;
     panelCount: number;
-  }>({ tableId: '', position: 'top', panelCount: 1 });
+  }>({ tableId: '', position: 'Main', panelCount: 1 });
   const [faultPanelType, setFaultPanelType] = useState<'all' | 'fault' | 'repairing'>('all');
   const [propagateSeries, setPropagateSeries] = useState<boolean>(true);
   const [showMakeFault, setShowMakeFault] = useState(false);
   const [mfTableId, setMfTableId] = useState<string>('');
-  const [mfPosition, setMfPosition] = useState<'top' | 'bottom'>('bottom');
+  const [mfPosition, setMfPosition] = useState<string>('Main');
   const [mfPanelIndex, setMfPanelIndex] = useState<number>(0);
   const [mfCurrent, setMfCurrent] = useState<string>('');
   const [mfVoltage, setMfVoltage] = useState<string>('');
@@ -182,10 +182,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
           const generatedPanels: Panel[] = [];
 
           (plantDetails.live_data || []).forEach((table: any) => {
-            // Handle legacy data gracefully or strict new schema
             const vs = table.panelVoltages || [];
-            // If legacy top/bottom exist, migrator logic would be needed, but we assume new schema now.
-
             const vpp = plantDetails.voltagePerPanel || 20;
             vs.forEach((vol: number, i: number) => {
               const voltageHealth = (vol / vpp) * 100;
@@ -198,8 +195,8 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 tableId: table.id || table.node || table.serialNumber,
                 companyId: user.companyId,
                 name: `P${i + 1}`,
-                // Legacy props for interface compat
-                position: i < (table.panelsTop || vs.length / 2) ? 'top' : 'bottom',
+                // Unified position
+                position: 'Main',
                 maxVoltage: 40,
                 maxCurrent: 10,
                 currentVoltage: vol,
@@ -239,8 +236,8 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     setShowLogoutDialog(false);
   };
 
-  const handleAddPanel = (tableId: string, position: 'top' | 'bottom') => {
-    setAddPanelData({ tableId, position, panelCount: 1 });
+  const handleAddPanel = (tableId: string) => {
+    setAddPanelData({ tableId, position: 'Main', panelCount: 1 });
     setShowAddPanelDialog(true);
   };
 
@@ -258,7 +255,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
       if (success) {
         toast({
           title: "Panels Added",
-          description: `${addPanelData.panelCount} panel(s) added to ${addPanelData.position} side successfully.`,
+          description: `${addPanelData.panelCount} panel(s) added successfully.`,
           variant: "default",
         });
 
@@ -267,7 +264,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
         // Close dialog
         setShowAddPanelDialog(false);
-        setAddPanelData({ tableId: '', position: 'top', panelCount: 1 });
+        setAddPanelData({ tableId: '', position: 'Main', panelCount: 1 });
       } else {
         toast({
           title: "Failed to Add Panels",
@@ -287,7 +284,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
   const cancelAddPanel = () => {
     setShowAddPanelDialog(false);
-    setAddPanelData({ tableId: '', position: 'top', panelCount: 1 });
+    setAddPanelData({ tableId: '', position: 'Main', panelCount: 1 });
   };
 
   // Function to calculate panel health percentage
@@ -337,7 +334,6 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
           (plantDetails.live_data || []).forEach((table: any) => {
             const vs = table.panelVoltages || [];
             const vpp = plantDetails.voltagePerPanel || 20;
-            const topCount = table.panelsTop || Math.ceil(vs.length / 2);
 
             vs.forEach((vol: number, i: number) => {
               const voltageHealth = (vol / vpp) * 100;
@@ -350,7 +346,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 tableId: table.id,
                 companyId: user.companyId,
                 name: `P${i + 1}`,
-                position: i < topCount ? 'top' : 'bottom',
+                position: 'Main',
                 maxVoltage: 40,
                 maxCurrent: 10,
                 currentVoltage: vol,
@@ -658,46 +654,47 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                     const tablePanels = panels.filter(p => p.tableId === tableId);
 
                     return (
-                      <Card key={tableId} className="glass-card mb-4 overflow-hidden border-2 shadow-lg">
-                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-3">
-                          <CardTitle className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex-shrink-0 bg-primary text-white shadow-sm rounded-md px-3 py-1.5 font-bold text-lg leading-none">
-                                {table.node || table.serialNumber || 'TBL'}
-                              </div>
-                              <div className="flex flex-col text-left">
-                                <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest leading-tight">Solar Array</span>
-                                <Badge variant="outline" className="w-fit text-[10px] h-4 leading-none bg-white border-slate-200 mt-0.5">{tablePanels.length} Panels</Badge>
-                              </div>
-                            </div>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-2 bg-slate-50">
-                          <div className="space-y-1">
-                            {/* Compact Single Line Panel Row */}
-                            <div className="flex gap-2 p-3 bg-white border border-slate-100 rounded-xl overflow-x-auto custom-scrollbar shadow-sm">
-                              {tablePanels.map((p) => (
-                                <div
-                                  key={p.id}
-                                  className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform duration-200 active:scale-95"
-                                  onClick={() => handlePanelClick(p, table.id || table.node || table.serialNumber)}
-                                >
-                                  <div className="w-12 h-16 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-inner">
-                                    <img
-                                      src={p.status === 'bad' ? '/images/panels/bad.png' : p.status === 'moderate' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
-                                      alt={p.status}
-                                      className="absolute inset-0 w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 flex justify-center backdrop-blur-[1px]">
-                                      <span className="text-[7.5px] font-bold text-white leading-none tracking-tight">{p.currentVoltage.toFixed(1)}V</span>
-                                    </div>
+                      <div key={tableId} className="flex items-center gap-4 p-4 bg-white/50 border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+                        {/* Node ID Section */}
+                        <div className="flex-shrink-0 w-32">
+                          <div className="bg-slate-100 text-slate-800 border border-slate-200 shadow-sm rounded-lg px-3 py-2 font-semibold text-lg text-center tracking-tight">
+                            {table.node || table.serialNumber || 'TBL'}
+                          </div>
+                          {isTechnician && (
+                            <Button size="xs" variant="ghost" className="w-full mt-1 text-[10px] h-5 text-muted-foreground hover:text-primary" onClick={() => handleAddPanel(tableId)}>
+                              <Plus className="w-3 h-3 mr-1" /> Add
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Panels Scrollable Row */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex gap-2 pb-2 overflow-x-auto custom-scrollbar">
+                            {tablePanels.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform duration-200 active:scale-95 hover:-translate-y-1"
+                                onClick={() => handlePanelClick(p, table.id || table.node || table.serialNumber)}
+                                title={`Panel ${p.name}: ${p.currentVoltage}V`}
+                              >
+                                <div className="w-8 h-12 border border-slate-200 rounded-md flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-sm">
+                                  <img
+                                    src={p.status === 'bad' ? '/images/panels/bad.png' : p.status === 'moderate' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
+                                    alt={p.status}
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-x-0 bottom-0 bg-black/60 py-[1px] flex justify-center backdrop-blur-[1px]">
+                                    <span className="text-[6px] font-bold text-white leading-none tracking-tight">{p.currentVoltage.toFixed(1)}V</span>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
+                            {tablePanels.length === 0 && (
+                              <div className="text-xs text-muted-foreground italic py-2 pl-2">No panels.</div>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -754,7 +751,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                                 {row._id}
                               </td>
                               <td className="px-4 py-3 font-bold text-primary border-r">
-                                {row.node}
+                                {row.id || row.node || row.serialNumber}
                               </td>
                               <td className="px-4 py-3 text-slate-600 whitespace-nowrap border-r text-[11px]">
                                 {new Date(row.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
@@ -1002,7 +999,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
               Add Panels
             </DialogTitle>
             <DialogDescription>
-              Provide the number of panels and the side to add new panels to this table.
+              Provide the number of panels to add to this table.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1021,30 +1018,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 placeholder="Enter number of panels"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Position:</Label>
-              <div className="flex gap-2">
-                <Button
-                  variant={addPanelData.position === 'top' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAddPanelData(prev => ({ ...prev, position: 'top' }))}
-                  className="flex-1"
-                >
-                  Top Side
-                </Button>
-                <Button
-                  variant={addPanelData.position === 'bottom' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAddPanelData(prev => ({ ...prev, position: 'bottom' }))}
-                  className="flex-1"
-                >
-                  Bottom Side
-                </Button>
-              </div>
-            </div>
+
             <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Adding {addPanelData.panelCount} panel(s) to the {addPanelData.position} side will increase the total panel count for this table.
+                <strong>Note:</strong> Adding {addPanelData.panelCount} panel(s) will increase the total panel count for this table.
               </p>
             </div>
           </div>
@@ -1069,7 +1046,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
               Make Fault (Testing)
             </DialogTitle>
             <DialogDescription>
-              Select the target table, row and panel, then enter a current to simulate a fault.
+              Select the target table and panel, then enter a current to simulate a fault.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1081,18 +1058,13 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   {tables.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.serialNumber}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>{t.node || t.serialNumber}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Row</Label>
-              <div className="flex gap-2">
-                <Button variant={mfPosition === 'top' ? 'default' : 'outline'} size="sm" onClick={() => setMfPosition('top')} className="flex-1">Top</Button>
-                <Button variant={mfPosition === 'bottom' ? 'default' : 'outline'} size="sm" onClick={() => setMfPosition('bottom')} className="flex-1">Bottom</Button>
-              </div>
-            </div>
+            {/* Removed Row Selection */}
+
             <div className="space-y-2">
               <Label>Panel</Label>
               <Select value={String(mfPanelIndex)} onValueChange={(v) => setMfPanelIndex(parseInt(v, 10))}>
@@ -1102,7 +1074,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 <SelectContent>
                   {(() => {
                     const t = tables.find(x => x.id === mfTableId);
-                    const count = t ? (mfPosition === 'top' ? t.panelsTop : t.panelsBottom) : 0;
+                    const count = t ? (t.panelVoltages?.length || t.panelsTop + t.panelsBottom || 20) : 0;
                     const items = [] as JSX.Element[];
                     for (let i = 0; i < count; i++) items.push(<SelectItem key={i} value={String(i)}>P{i + 1}</SelectItem>);
                     return items;
@@ -1185,11 +1157,11 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 const vVal = parseFloat(mfVoltage);
                 if (!Number.isFinite(cVal)) return;
                 try {
-                  const res = await setPanelCurrent(user.companyId, mfTableId, mfPosition, mfPanelIndex, cVal, propagateSeries, vVal);
+                  const res = await setPanelCurrent(user.companyId, mfTableId, 'Main', mfPanelIndex, cVal, propagateSeries, vVal);
                   if (res.success) {
                     toast({
                       title: "Success",
-                      description: `Simulated ${cVal}A fault on P${mfPanelIndex + 1} (${mfPosition}).`,
+                      description: `Simulated ${cVal}A fault on P${mfPanelIndex + 1}.`,
                     });
                     await loadData();
                     setShowMakeFault(false);

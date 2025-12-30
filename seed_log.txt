@@ -1,0 +1,8 @@
+[dotenv@17.2.3] injecting env (4) from .env.development -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+MongoDB Connected
+--- Seeding Super Admin ---
+Γ£à Super Admin updated: superadmin@gmail.com
+--- Seeding Company: Infosys ---
+Seeding Failed: ReferenceError: Cannot access 'adminEmail' before initialization
+    at seedData (E:\plant-main\backend\scripts\seed_demo_data.js:49:43)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

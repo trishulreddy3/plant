@@ -7,8 +7,9 @@ const liveDataSchema = new mongoose.Schema({
     temparature: { type: Number, default: 25 }, // Match user's typo
     lightintensity: { type: Number, default: 1000 }, // Match user's lowercase
     current: { type: Number, default: 0 },
-    panelsTop: { type: Number, default: 0 },
-    panelsBottom: { type: Number, default: 0 },
+    panelCount: { type: Number, default: 0 },
+    // panelsTop and panelsBottom are deprecated but kept for potential legacy data if strict: false doesn't cover it enough (it does, but clarity is good)
+    // We will primarily use panelCount now.
 }, {
     timestamps: true,
     collection: 'live_data',

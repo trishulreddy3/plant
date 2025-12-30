@@ -159,17 +159,17 @@ export const createCompanyFolder = async (
   });
 };
 
-export const addTableToPlant = async (companyId: string, panelsTop: number, panelsBottom: number) => {
+export const addTableToPlant = async (companyId: string, panelCount: number) => {
   return await apiCall(`/companies/${companyId}/tables`, {
     method: 'POST',
-    body: JSON.stringify({ panelsTop, panelsBottom }),
+    body: JSON.stringify({ panelCount }),
   });
 };
 
-export const updateTableInPlant = async (companyId: string, tableId: string, top: number, bottom: number, sn?: string) => {
+export const updateTableInPlant = async (companyId: string, tableId: string, panelCount: number, sn?: string) => {
   return await apiCall(`/companies/${companyId}/tables/${tableId}`, {
     method: 'PUT',
-    body: JSON.stringify({ panelsTop: top, panelsBottom: bottom, serialNumber: sn }),
+    body: JSON.stringify({ panelCount, serialNumber: sn }),
   });
 };
 
@@ -246,7 +246,7 @@ export const getResolvedTickets = async (companyId: string): Promise<ResolvedTic
   return await apiCall(`/companies/${companyId}/tickets?status=resolved`);
 };
 
-export const resolvePanel = async (companyId: string, tableId: string, position: 'top' | 'bottom', index: number) => {
+export const resolvePanel = async (companyId: string, tableId: string, position: string, index: number) => {
   return await apiCall(`/companies/${companyId}/resolve-panel`, {
     method: 'PUT',
     body: JSON.stringify({ tableId, position, index }),
@@ -266,7 +266,7 @@ export const getNodeFaultHistory = async (companyId: string) => {
 };
 
 export const setPanelCurrent = async (
-  companyId: string, tableId: string, position: 'top' | 'bottom',
+  companyId: string, tableId: string, position: string,
   index: number, current: number, propagate?: boolean, voltage?: number
 ) => {
   return await apiCall(`/companies/${companyId}/panels/current`, {
@@ -286,10 +286,10 @@ export const refreshPanelData = async (companyId: string): Promise<boolean> => {
   return res.success;
 };
 
-export const addPanels = async (companyId: string, tableId: string, position: 'top' | 'bottom', panelCount: number): Promise<boolean> => {
+export const addPanels = async (companyId: string, tableId: string, position: string, panelCount: number): Promise<boolean> => {
   const res = await apiCall(`/companies/${companyId}/tables/${tableId}/add-panels`, {
     method: 'POST',
-    body: JSON.stringify({ position, panelCount }),
+    body: JSON.stringify({ position: 'default', panelCount }),
   });
   return res.success;
 };
@@ -329,8 +329,8 @@ export const updateStaffStatus = async (companyId: string, entryId: string, stat
 export const getPanelHealthPercentage = (
   plantDetails: PlantDetails,
   tableId: string,
-  position: 'top' | 'bottom',
-  panelIndex: number
+  position?: string,
+  panelIndex: number = 0
 ): number => {
   const table = (plantDetails.live_data || []).find(t => t.id === tableId);
   if (!table) return 0;
@@ -338,12 +338,12 @@ export const getPanelHealthPercentage = (
   const vp = plantDetails.voltagePerPanel || 20;
   const voltages = table.panelVoltages || [];
 
-  // Calculate index in flat array
-  const topCount = table.panelsTop || Math.ceil(voltages.length / 2);
-  let flatIndex = panelIndex;
-  if (position === 'bottom') {
-    flatIndex = topCount + panelIndex;
-  }
+  // If position is provided (legacy), try to offset (though backend should flatten it now)
+  // New backend uses flat 0..N, so if frontend passes 0..N, it works.
+  // If frontend passes 'bottom' and index 0, we might need to know 'topCount' to offset.
+  // But since we are removing top/bottom, let's assume raw index for now.
+  // If legacy logic persists, we might look for 'panelsTop' property on table.
+  const flatIndex = panelIndex;
 
   const voltage = voltages[flatIndex] || 0;
   return Math.round((voltage / vp) * 100);

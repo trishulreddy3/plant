@@ -523,16 +523,22 @@ const TechnicianDashboard = () => {
                       // 1) Reset culprit panel values in backend first
                       let panelReset = false;
                       try {
-                        const [, serial, pos, pNum] = selectedRow.fault.match(/^(TBL-\d+)\.(TOP|BOTTOM)\.P(\d+)$/) || [];
-                        const position = (pos || 'TOP').toLowerCase() as 'top' | 'bottom';
-                        const panelIndex = Math.max(0, (parseInt(pNum || '1', 10) - 1));
-                        const table = plant?.tables.find(t => t.serialNumber === serial);
-                        if (table) {
-                          const res = await resolvePanel(companyId, table.id, position, panelIndex);
-                          panelReset = !!res?.success;
-                          if (panelReset) {
-                            const updated = await getPlantDetails(companyId);
-                            if (updated) setPlant(updated);
+                        // Regex to match Node-XXX.Main.P1 or TBL-XXX.TOP.P1
+                        const match = selectedRow.fault.match(/^(.+)\.(.+)\.P(\d+)$/);
+                        if (match) {
+                          const [, serial, pos, pNum] = match;
+                          const position = pos;
+                          const panelIndex = Math.max(0, (parseInt(pNum || '1', 10) - 1));
+                          // Find table by either new node name or old serial
+                          const table = plant?.tables.find(t => (t.node === serial) || (t.serialNumber === serial));
+
+                          if (table) {
+                            const res = await resolvePanel(companyId, table.id, position, panelIndex);
+                            panelReset = !!res?.success;
+                            if (panelReset) {
+                              const updated = await getPlantDetails(companyId);
+                              if (updated) setPlant(updated);
+                            }
                           }
                         }
                       } catch (e) {
@@ -606,10 +612,7 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
   for (const table of (plant.live_data || [])) {
     const voltages = table.panelVoltages || [];
     const actCur = table.current || 0;
-    const serial = table.serialNumber || table.node;
-
-    // Determine row counts from table properties (added in server.js fix)
-    const topCount = table.panelsTop || Math.ceil(voltages.length / 2);
+    const serial = table.node || table.serialNumber || 'Node';
 
     voltages.forEach((actVol: number, idx: number) => {
       // Use Voltage Health to identify the actual culprit
@@ -620,8 +623,8 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
       // This prevents "Good" panels in a bottlenecked series from showing up as defects
       if (voltageHealth >= 98) return;
 
-      const position = idx < topCount ? 'TOP' : 'BOTTOM';
-      const panelIdxInRow = idx < topCount ? idx + 1 : (idx - topCount + 1);
+      const position = 'Main';
+      const panelIdxInRow = idx + 1;
 
       // CATEGORY: Based on Voltage health
       // < 50% = BAD, else MODERATE
@@ -632,7 +635,10 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
       const predictedLossKW = powerLossKW * 4;
 
       const fault = `${serial}.${position}.P${panelIdxInRow}`;
-      const trackId = `${(124500 + (serial.match(/\d+/) ? parseInt(serial.match(/\d+/)![0]) * 100 : 0) + idx).toString()}`;
+      // Track ID logic based on serial number digits + panel index
+      const serialDigits = serial.match(/\d+/);
+      const serNum = serialDigits ? parseInt(serialDigits[0]) : 0;
+      const trackId = `${(124500 + (serNum * 100) + idx).toString()}`;
 
       rows.push({
         key: `${table.id || serial}-${idx}`,

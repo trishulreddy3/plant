@@ -114,18 +114,10 @@ async function updatePanelCurrent(companyId, { tableId, position, index, current
     const cp = company.plantDetails.currentPerPanel || cpDefault;
     const vp = company.plantDetails.voltagePerPanel || vpDefault;
 
-    // Calculate absolute index
-    let absoluteIndex = index;
-    if (position === 'bottom') {
-        let topCount = record.panelsTop || 0;
-        if (topCount === 0) {
-            const pKeys = Object.keys(record.toObject()).filter(k => /^p\d+_v$/.test(k));
-            topCount = Math.ceil(pKeys.length / 2);
-        }
-        absoluteIndex = topCount + index;
-    }
-
+    // Direct index usage (0-based from frontend)
+    const absoluteIndex = index;
     const pKey = `p${absoluteIndex + 1}_v`;
+
     const targetVoltage = (typeof voltage === 'number' && Number.isFinite(voltage))
         ? voltage
         : (current < cp ? (vp * (current / cp)) : vp);
@@ -158,18 +150,10 @@ async function resolvePanel(companyId, { tableId, position, index }) {
     const vp = company.plantDetails.voltagePerPanel || vpDefault;
     const cp = company.plantDetails.currentPerPanel || cpDefault;
 
-    // Calculate absolute index
-    let absoluteIndex = index;
-    if (position === 'bottom') {
-        let topCount = record.panelsTop || 0;
-        if (topCount === 0) {
-            const pKeys = Object.keys(record.toObject()).filter(k => /^p\d+_v$/.test(k));
-            topCount = Math.ceil(pKeys.length / 2);
-        }
-        absoluteIndex = topCount + index;
-    }
-
+    // Direct index usage (0-based from frontend)
+    const absoluteIndex = index;
     const pKey = `p${absoluteIndex + 1}_v`;
+
     console.log(`[panel_logic] Resolving ${pKey} to ${vp}V`);
 
     record.set(pKey, vp);

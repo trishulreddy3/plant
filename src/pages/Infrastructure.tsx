@@ -390,8 +390,7 @@ const Infrastructure = () => {
                   <thead>
                     <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-300">
                       <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Table No</th>
-                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Top Row Panels</th>
-                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Bottom Row Panels</th>
+                      <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Panel Count</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Voltage per Panel</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">Current per Panel</th>
                       <th className="text-left py-4 px-4 font-semibold text-gray-800 border-r border-gray-200">
@@ -414,16 +413,14 @@ const Infrastructure = () => {
                   </thead>
                   <tbody>
                     {tables.map((table) => {
-                      const topPanelsCount = table.panelsTop || 0;
-                      const bottomPanelsCount = table.panelsBottom || 0;
-                      const totalPanels = topPanelsCount + bottomPanelsCount;
+                      const totalPanels = table.panelCount || table.panelVoltages?.length || ((table.panelsTop || 0) + (table.panelsBottom || 0)) || 0;
 
                       // Get voltage and current from plant details
                       const voltagePerPanel = plantDetails?.voltagePerPanel || company?.voltagePerPanel || 20;
                       const currentPerPanel = plantDetails?.currentPerPanel || company?.currentPerPanel || 10;
                       const maxPowerPerPanel = voltagePerPanel * currentPerPanel;
                       const maxTotalPower = maxPowerPerPanel * totalPanels;
-                      const displaySerial = String(table.serialNumber || '').replace(/\D+/g, '') || table.serialNumber;
+                      const displaySerial = table.node || table.serialNumber;
 
                       return (
                         <tr
@@ -437,8 +434,7 @@ const Infrastructure = () => {
                           <td className="py-4 px-4 font-medium text-primary border-r border-gray-200">
                             <span className="font-mono font-semibold">{displaySerial}</span>
                           </td>
-                          <td className="py-4 px-4 border-r border-gray-200">{topPanelsCount}</td>
-                          <td className="py-4 px-4 border-r border-gray-200">{bottomPanelsCount}</td>
+                          <td className="py-4 px-4 border-r border-gray-200">{totalPanels}</td>
                           <td className="py-4 px-4 border-r border-gray-200">{voltagePerPanel}V</td>
                           <td className="py-4 px-4 border-r border-gray-200">{currentPerPanel}A</td>
                           <td className="py-4 px-4 font-semibold text-green-600 border-r border-gray-200">{convertPower(maxTotalPower)}</td>

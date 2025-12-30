@@ -100,7 +100,9 @@ const CompanyMonitor = () => {
       if (plantDetails) {
         setTables(plantDetails.tables || []);
         // Calculate total panels from tables
-        const totalPanels = plantDetails.tables.reduce((sum, table) => sum + table.panelsTop + table.panelsBottom, 0);
+        const totalPanels = plantDetails.tables.reduce((sum: number, table: any) => {
+          return sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0);
+        }, 0);
         setPanels([]); // We don't need individual panel data for this view
       } else {
         setTables([]);

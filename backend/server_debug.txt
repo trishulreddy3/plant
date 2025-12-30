@@ -685,3 +685,27 @@
 [LOG] 2025-12-30T11:40:24.096Z [AUTH] Attempting login for email: infosysadmin@gmail.com, company: infosys
 [LOG] 2025-12-30T11:40:24.123Z [AUTH] User found: infosysadmin@gmail.com, role: admin, stored company: infosys
 [LOG] 2025-12-30T11:40:24.220Z [AUTH] Password match for infosysadmin@gmail.com: true
+[LOG] 2025-12-30T11:58:17.410Z [AUTH] Attempting login for email: technicianinfo@gmail.com, company: infosys
+[LOG] 2025-12-30T11:58:17.435Z [AUTH] User not found in LoginCredentials: technicianinfo@gmail.com
+[LOG] 2025-12-30T11:58:28.957Z [AUTH] Attempting login for email: trishul@gmail.com, company: infosys
+[LOG] 2025-12-30T11:58:28.981Z [AUTH] User found: trishul@gmail.com, role: technician, stored company: infosys
+[LOG] 2025-12-30T11:58:29.075Z [AUTH] Password match for trishul@gmail.com: true
+[LOG] 2025-12-30T11:58:29.350Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:29:01.514Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:38:12.239Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:40:14.349Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:40:47.247Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:41:22.198Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:43:12.303Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:44:57.460Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:45:50.389Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:51:44.313Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:51:54.381Z [tickets/get] companyId: company-1766814585804 status: resolved
+[LOG] 2025-12-30T12:54:29.576Z MongoDB Connected: ac-khr4lim-shard-00-02.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-30T12:54:29.578Z MongoDB connection initialized.
+[LOG] 2025-12-30T12:54:29.582Z server running on port 5000
+[LOG] 2025-12-30T12:54:29.583Z SCADA Backend is fully operational.
+[LOG] 2025-12-30T12:55:47.349Z DEBUG: Attempting to delete table Node-006 from company company-1766814585804
+[LOG] 2025-12-30T12:55:47.371Z DEBUG: Tables before: 0. IDs: 
+[LOG] 2025-12-30T12:55:47.374Z DEBUG: Tables after: 0
+[LOG] 2025-12-30T12:55:47.374Z DEBUG: Table ID match failed.

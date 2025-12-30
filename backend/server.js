@@ -321,24 +321,26 @@ app.delete('/api/companies/:companyId/tables/:tableId', async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (!company.plantDetails.live_data) company.plantDetails.live_data = [];
+    // Delete from LiveData collection
+    const result = await LiveData.deleteOne({
+      companyId,
+      $or: [
+        { node: tableId },
+        { _id: mongoose.Types.ObjectId.isValid(tableId) ? tableId : null }
+      ]
+    });
 
-    const beforeCount = company.plantDetails.live_data.length;
-    console.log(`DEBUG: Tables before: ${beforeCount}. IDs:`, company.plantDetails.live_data.map(t => t.id));
-
-    company.plantDetails.live_data = company.plantDetails.live_data.filter(t => t.id !== tableId);
-    const afterCount = company.plantDetails.live_data.length;
-    console.log(`DEBUG: Tables after: ${afterCount}`);
-
-    if (afterCount === beforeCount) {
-      console.log('DEBUG: Table ID match failed.');
+    if (result.deletedCount === 0) {
+      console.log('DEBUG: Table not found in LiveData.');
       return res.status(404).json({ error: 'Table not found' });
     }
 
+    // Update timestamp metadata
     company.plantDetails.lastUpdated = new Date().toISOString();
     company.markModified('plantDetails');
     await company.save();
 
+    console.log(`DEBUG: Table ${tableId} deleted successfully.`);
     return res.json({ success: true, message: 'Table deleted successfully' });
   } catch (error) {
     console.error('Error deleting table:', error);
@@ -1046,7 +1048,7 @@ app.delete('/api/companies/:companyId', async (req, res) => {
 app.post('/api/companies/:companyId/tables', async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { panelsTop, panelsBottom } = req.body;
+    const { panelCount } = req.body;
 
     // DB FIRST
     const company = await Company.findOne({ companyId });
@@ -1060,7 +1062,8 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
     // Find highest existing node number for sequence
     let maxNum = 0;
     existingRecords.forEach(t => {
-      const parts = t.node ? t.node.split('-') : [];
+      // Handle both TBL- and Node- prefixes for backward compatibility during transition
+      const parts = t.node ? t.node.split(/-/) : [];
       if (parts.length === 2) {
         const num = parseInt(parts[1]);
         if (!isNaN(num) && num > maxNum) maxNum = num;
@@ -1068,11 +1071,16 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
     });
 
     const tableNumber = maxNum + 1;
-    const serialNumber = `TBL-${String(tableNumber).padStart(4, '0')}`;
+    // New naming convention: Node-001
+    const serialNumber = `Node-${String(tableNumber).padStart(3, '0')}`;
 
-    const topCount = parseInt(panelsTop) || 0;
-    const bottomCount = parseInt(panelsBottom) || 0;
-    const safeCount = (topCount + bottomCount) || 10;
+    const count = parseInt(panelCount) || 0;
+
+    // Validation: Max 20 panels
+    if (count > 20) {
+      return res.status(400).json({ error: 'Maximum 20 panels allowed per Node.' });
+    }
+    const safeCount = count || 10;
 
     // Use company defaults if available
     const vpp = company.plantDetails?.voltagePerPanel || 20;
@@ -1088,8 +1096,8 @@ app.post('/api/companies/:companyId/tables', async (req, res) => {
       temparature: pData.temparature,
       lightintensity: pData.lightintensity,
       current: pData.current,
-      panelsTop: topCount,
-      panelsBottom: bottomCount
+      panelCount: safeCount
+      // Removed panelsTop/panelsBottom
     };
 
     // Flatten voltages
@@ -1127,21 +1135,63 @@ app.put('/api/companies/:companyId/tables/:tableId', async (req, res) => {
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
     // Update in LiveData collection
-    const updatedRecord = await LiveData.findOneAndUpdate(
-      { companyId, node: tableId },
-      { node: serialNumber, time: new Date() },
-      { new: true }
-    );
+    const query = {
+      companyId,
+      $or: [
+        { node: tableId },
+        { _id: mongoose.Types.ObjectId.isValid(tableId) ? tableId : null }
+      ]
+    };
 
-    if (!updatedRecord) {
+    const record = await LiveData.findOne(query);
+
+    if (!record) {
       return res.status(404).json({ error: 'Table record not found in LiveData' });
     }
+
+    if (serialNumber) {
+      record.node = serialNumber;
+    }
+
+    if (typeof panelCount !== 'undefined') {
+      const newCount = parseInt(panelCount);
+      if (!isNaN(newCount) && newCount >= 0 && newCount <= 20) {
+        // Calculate current panel count
+        const recordObj = record.toObject();
+        const pVoltKeys = Object.keys(recordObj).filter(k => /^p\d+_v$/.test(k));
+        const currentCount = pVoltKeys.length;
+
+        if (newCount > currentCount) {
+          // Add panels
+          const diff = newCount - currentCount;
+          const vpp = company.plantDetails.voltagePerPanel || 20;
+          const cpp = company.plantDetails.currentPerPanel || 10;
+          const newC = generatePanelData(diff, vpp, cpp);
+
+          newC.panelVoltages.forEach((v, i) => {
+            const pNum = currentCount + i + 1;
+            record[`p${pNum}_v`] = v;
+          });
+
+        } else if (newCount < currentCount) {
+          // Remove panels (from end)
+          for (let i = newCount + 1; i <= currentCount; i++) {
+            record[`p${i}_v`] = undefined;
+          }
+        }
+
+        record.panelCount = newCount;
+      }
+    }
+
+    record.time = new Date();
+    await record.save();
 
     company.plantDetails.lastUpdated = new Date();
     company.markModified('plantDetails');
     await company.save();
 
-    res.json({ success: true, message: 'Table updated successfully in LiveData', table: updatedRecord });
+    res.json({ success: true, message: 'Table updated successfully in LiveData', table: record });
   } catch (error) {
     console.error('Error updating table:', error);
     res.status(500).json({ error: 'Failed to update table', message: error.message });
