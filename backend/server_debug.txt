@@ -709,3 +709,25 @@
 [LOG] 2025-12-30T12:55:47.371Z DEBUG: Tables before: 0. IDs: 
 [LOG] 2025-12-30T12:55:47.374Z DEBUG: Tables after: 0
 [LOG] 2025-12-30T12:55:47.374Z DEBUG: Table ID match failed.
+[LOG] 2025-12-30T13:11:14.333Z MongoDB Connected: ac-khr4lim-shard-00-00.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-30T13:11:14.335Z MongoDB connection initialized.
+[LOG] 2025-12-30T13:11:14.340Z server running on port 5000
+[LOG] 2025-12-30T13:11:14.340Z SCADA Backend is fully operational.
+[LOG] 2025-12-30T13:11:48.689Z DEBUG: Attempting to delete table Node-006 from company company-1766814585804
+[LOG] 2025-12-30T13:11:48.767Z DEBUG: Table Node-006 deleted successfully.
+[LOG] 2025-12-30T13:11:59.745Z DEBUG: Attempting to delete table TBL-0001 from company company-1766814585804
+[LOG] 2025-12-30T13:11:59.809Z DEBUG: Table TBL-0001 deleted successfully.
+[LOG] 2025-12-30T13:12:13.730Z DEBUG: Attempting to delete table TBL-0002 from company company-1766814585804
+[LOG] 2025-12-30T13:12:13.797Z DEBUG: Table TBL-0002 deleted successfully.
+[LOG] 2025-12-30T13:12:32.888Z DEBUG: Attempting to delete table TBL-0003 from company company-1766814585804
+[LOG] 2025-12-30T13:12:32.953Z DEBUG: Table TBL-0003 deleted successfully.
+[LOG] 2025-12-30T13:12:39.575Z DEBUG: Attempting to delete table TBL-0004 from company company-1766814585804
+[LOG] 2025-12-30T13:12:39.637Z DEBUG: Table TBL-0004 deleted successfully.
+[LOG] 2025-12-30T13:12:45.692Z DEBUG: Attempting to delete table TBL-0005 from company company-1766814585804
+[LOG] 2025-12-30T13:12:45.761Z DEBUG: Table TBL-0005 deleted successfully.
+[LOG] 2025-12-30T13:34:10.334Z MongoDB Connected: ac-khr4lim-shard-00-02.l5cqs8j.mongodb.net, DB: myDatabase
+[LOG] 2025-12-30T13:34:10.335Z MongoDB connection initialized.
+[LOG] 2025-12-30T13:34:10.340Z server running on port 5000
+[LOG] 2025-12-30T13:34:10.340Z SCADA Backend is fully operational.
+[ERROR] 2025-12-30T13:34:26.766Z Logout error: User details not found
+[LOG] 2025-12-30T13:37:52.776Z [tickets/get] companyId: company-1766814585804 status: resolved

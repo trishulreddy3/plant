@@ -149,24 +149,29 @@ export const login = async (email: string, password: string, companyName?: strin
 
 export const logout = async () => {
   const user = getCurrentUser();
+
+  // Clear data immediately to prevent race conditions during navigation
+  clearAllStoredData();
+  currentUser = null;
+
   if (user) {
     try {
       // Import dynamically to avoid circular dependencies
       const { getApiBaseUrl } = await import('./realFileSystem');
       const API_BASE_URL = getApiBaseUrl();
 
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+      // Send logout request to backend (fire and forget)
+      fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, sessionId: user.sessionId })
-      });
-      console.log(`[LOGOUT] Session ${user.sessionId} closed for ${user.id}`);
+      }).catch(e => console.warn('Logout backend call failed', e));
+
+      console.log(`[LOGOUT] Session ${user?.sessionId} closed for ${user?.id}`);
     } catch (e) {
-      console.warn('Logout backend call failed', e);
+      console.warn('Logout setup failed', e);
     }
   }
-  clearAllStoredData();
-  currentUser = null;
 };
 
 // Check if user is already logged in (for auto-login)

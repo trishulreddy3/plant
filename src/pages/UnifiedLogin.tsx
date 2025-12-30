@@ -108,17 +108,38 @@ const UnifiedLogin = () => {
           navigate('/management-dashboard', { replace: true });
         }
       } else {
+        // Handle specific error cases from backend response
+        let errorMsg = result.error || 'Invalid credentials';
+
+        // Improve wording for mismatched credentials
+        if (errorMsg.toLowerCase().includes('password') || errorMsg.toLowerCase().includes('user not found')) {
+          errorMsg = 'Invalid credentials. Please check your email, company, and password.';
+        }
+
         toast({
           title: 'Login Failed',
-          description: result.error || 'Invalid credentials',
+          description: errorMsg,
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+
+      let errorTitle = 'Login Failed';
+      let errorDescription = 'An unexpected error occurred.';
+
+      // Check if it's a network/server error
+      if (error.message && (error.message.includes('Network Error') || error.message.includes('fetch') || error.message.includes('connect'))) {
+        errorTitle = 'Server Connection Error';
+        errorDescription = 'There is an error with the server. Please check your internet connection and try again later.';
+      } else {
+        // Unknown or internal errors
+        errorDescription = error.message || 'An internal error occurred during login. Please contact support.';
+      }
+
       toast({
-        title: 'Login Failed',
-        description: 'An error occurred during login. Please try again.',
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
       });
     }
@@ -321,22 +342,25 @@ const UnifiedLogin = () => {
               <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
                 <h3 className="text-sm sm:text-base font-semibold text-green-800 mb-2">Demo Credentials:</h3>
                 <div className="text-xs sm:text-sm text-green-700 space-y-1 break-words">
-                  <div><strong>Plant Admin (role: admin):</strong></div>
-                  <div>Company: google</div>
-                  <div>Email: rakesh@gmail.com</div>
-                  <div>Password: rakesh123</div>
-                  <div className="mt-2"><strong>Management (role: management):</strong></div>
-                  <div>Company: google</div>
-                  <div>Email: managementtrishul@gmail.com</div>
-                  <div>Password: E4lTNFdHMO72</div>
-                  <div className="mt-2"><strong>Technician (role: technician):</strong></div>
-                  <div>Company: google</div>
-                  <div>Email: trishul@gmail.com</div>
-                  <div>Password: ZKoV3UolQ9wQ</div>
-                  <div className="mt-2"><strong>Super Admin (role: admin):</strong></div>
+                  <div><strong>Super Admin (role: admin):</strong></div>
                   <div>Company: microsyslogic</div>
                   <div>Email: superadmin@gmail.com</div>
                   <div>Password: superadmin@123</div>
+
+                  <div className="mt-2"><strong>Plant Admin (role: admin):</strong></div>
+                  <div>Company: infosys</div>
+                  <div>Email: infosysadmin@gmail.com</div>
+                  <div>Password: admin@123</div>
+
+                  <div className="mt-2"><strong>Technician (role: technician):</strong></div>
+                  <div>Company: infosys</div>
+                  <div>Email: trishul@gmail.com</div>
+                  <div>Password: Apt37Q2IgKTs</div>
+
+                  <div className="mt-2"><strong>Management (role: management):</strong></div>
+                  <div>Company: infosys</div>
+                  <div>Email: management@gmail.com</div>
+                  <div>Password: management@123</div>
                 </div>
               </div>
             </div>
