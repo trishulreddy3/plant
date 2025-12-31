@@ -7,6 +7,7 @@ export interface User {
   email: string;
   role: UserRole;
   companyName?: string;
+  companyId?: string;
   name?: string;
 }
 
@@ -148,15 +149,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           adminPassword: ''
         }));
         setCompanies(mapped);
+
+        // CHECK: If user is logged in, verify their company still exists
+        const currentUser = user; // Capture current user for the check
+        if (currentUser && currentUser.role !== 'super_admin' && currentUser.companyId) {
+          const companyExists = backendCompanies.some((c: any) => c.id === currentUser.companyId || (currentUser.companyName && c.name?.toLowerCase() === currentUser.companyName.toLowerCase()));
+
+          if (!companyExists) {
+            console.warn('[AuthContext] User company no longer exists. Logging out.');
+            import('@/lib/auth').then(({ logout }) => logout());
+
+            // Show toast via window dispatch if toast hook is not available here or use a simple alert
+            // Since we are in Context, we can't easily rely on hook inside non-hook function comfortably without passing it in.
+            // We'll rely on the logout redirect to login page.
+            // But let's try to notify.
+            const event = new CustomEvent('company-deleted-logout');
+            window.dispatchEvent(event);
+          }
+        }
+
       } catch (error) {
         console.error('Error loading companies from backend:', error);
         // Fallback to initial companies
         setCompanies(INITIAL_COMPANIES);
       }
     };
+
     loadCompanies();
-    // User seeding now handled by backend API
-  }, []);
+
+    // Poll every 10 seconds to ensure validity
+    const interval = setInterval(loadCompanies, 10000);
+    return () => clearInterval(interval);
+
+  }, [user]); // Add user dependency so it re-checks when user changes or login happens
 
   // Companies are now managed by backend API, no localStorage needed
 

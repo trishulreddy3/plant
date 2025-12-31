@@ -43,7 +43,20 @@ const UnifiedLogin = () => {
     } else {
       console.log('🔐 UnifiedLogin: No stored credentials found');
     }
-  }, []);
+
+    // Listen for forced logout event
+    const handleForcedLogout = () => {
+      toast({
+        title: 'Access Revoked',
+        description: 'Your company configuration has changed or was removed. Please contact your administrator.',
+        variant: 'destructive',
+        duration: 10000,
+      });
+    };
+
+    window.addEventListener('company-deleted-logout', handleForcedLogout);
+    return () => window.removeEventListener('company-deleted-logout', handleForcedLogout);
+  }, [toast]);
 
   // Automatic server connectivity checks with exponential backoff
   useEffect(() => {
@@ -354,13 +367,10 @@ const UnifiedLogin = () => {
 
                   <div className="mt-2"><strong>Technician (role: technician):</strong></div>
                   <div>Company: infosys</div>
-                  <div>Email: trishul@gmail.com</div>
-                  <div>Password: Apt37Q2IgKTs</div>
+                  <div>Email: trishulreddy@gmail.com</div>
+                  <div>Password: FW1k1lFdjw5j</div>
 
-                  <div className="mt-2"><strong>Management (role: management):</strong></div>
-                  <div>Company: infosys</div>
-                  <div>Email: management@gmail.com</div>
-                  <div>Password: management@123</div>
+                
                 </div>
               </div>
             </div>

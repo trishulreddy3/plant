@@ -57,19 +57,37 @@ const Infrastructure = () => {
         // Try to load from backend first
         const { getAllCompanies } = await import('@/lib/realFileSystem');
         const backendCompanies = await getAllCompanies();
-        const selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+        // Match by company ID or fallback to name
+        let selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+
+        if (!selectedCompany && user.companyName) {
+          console.log('Infrastructure: fallback to name match for', user.companyName);
+          selectedCompany = backendCompanies.find(c => c.name?.toLowerCase() === user.companyName?.toLowerCase());
+        }
 
         if (selectedCompany) {
           setCompany(selectedCompany);
 
           // Load plant details to get tables
+          // Use the ID from the found company (which is definitely correct)
           const { getPlantDetails } = await import('@/lib/realFileSystem');
-          const plantDetails = await getPlantDetails(user.companyId);
+          const plantDetails = await getPlantDetails(selectedCompany.id);
           if (plantDetails) {
             setPlantDetails(plantDetails); // Store plant details for table calculations
             setTables(plantDetails.tables || []);
           } else {
-            setTables([]);
+            // Try fetching by the other ID if different
+            if (selectedCompany.id !== user.companyId) {
+              const pd2 = await getPlantDetails(user.companyId);
+              if (pd2) {
+                setPlantDetails(pd2);
+                setTables(pd2.tables || []);
+              } else {
+                setTables([]);
+              }
+            } else {
+              setTables([]);
+            }
           }
         } else {
           // Fallback to localStorage

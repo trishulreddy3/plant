@@ -40,6 +40,7 @@ const PlantMonitor = () => {
       </div>
       <UnifiedViewTables
         userRole="plant_admin"
+        companyId={user.companyId}
         showBackButton={true}
         backButtonText="Back to Dashboard"
         onBackClick={handleBackClick}

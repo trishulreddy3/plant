@@ -187,7 +187,7 @@ const CompanyMonitor = () => {
       const { deleteCompanyFolder } = await import('@/lib/realFileSystem');
 
       // Delete company folder
-      await deleteCompanyFolder(company.id);
+      await deleteCompanyFolder(company.id, password);
 
       toast({
         title: "Company Deleted",

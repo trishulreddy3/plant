@@ -37,7 +37,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 }) => {
   const [nodeFaultStatusData, setNodeFaultStatusData] = useState<any[]>([]);
   const [flatLiveData, setFlatLiveData] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'faults'>('table');
   const LAZY_MODE = false;
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -125,9 +125,17 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
   }, [mfCurrent, expectedCurrent, expectedVoltage]);
 
   const loadData = async () => {
+    // Determine the target company ID:
+    // 1. If passed explicitly as a prop (Super Admin viewing a company), use that.
+    // 2. If no prop, fallback to the logged-in user's companyId.
     const targetId = companyId || user?.companyId;
-    console.log('[UnifiedViewTables] loadData start. targetId:', targetId);
-    if (!targetId) return;
+
+    console.log('[UnifiedViewTables] loadData start. targetId:', targetId, 'prop companyId:', companyId, 'user companyId:', user?.companyId);
+
+    if (!targetId) {
+      console.warn('[UnifiedViewTables] No target company ID found.');
+      return;
+    }
 
     try {
       const backendCompanies = await getAllCompanies();
@@ -136,7 +144,12 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
       // Resolve by id or fallback to name match if id mismatch
       let selectedCompany = backendCompanies.find(c => c.id === targetId);
       if (!selectedCompany && targetId) {
+        // Fallback 1: Check if targetId is actually a name
         selectedCompany = backendCompanies.find(c => c.name?.toLowerCase() === targetId.toLowerCase());
+      }
+      if (!selectedCompany && user?.companyName) {
+        // Fallback 2: Check logged-in user's company name
+        selectedCompany = backendCompanies.find(c => c.name?.toLowerCase() === user.companyName?.toLowerCase());
       }
 
       if (selectedCompany) {
@@ -642,6 +655,14 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                 >
                   Live Data Table
                 </Button>
+                <Button
+                  variant={viewMode === 'faults' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('faults')}
+                  className={viewMode === 'faults' ? 'rounded-lg shadow-sm' : 'rounded-lg'}
+                >
+                  Fault Status Table
+                </Button>
               </div>
             </div>
 
@@ -712,6 +733,73 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   </CardContent>
                 </Card>
               )
+            ) : viewMode === 'faults' ? (
+              <Card className="glass-card">
+                <CardContent className="p-0 overflow-auto">
+                  <div className="min-w-full overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Time</th>
+                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Node</th>
+                          {/* Dynamic Headers P1...PN */}
+                          {Array.from({
+                            length: Math.max(
+                              ...nodeFaultStatusData.map(d => {
+                                // Count keys matching P\d+
+                                return Object.keys(d).filter(k => /^P\d+$/.test(k)).length;
+                              }),
+                              ...tables.map(t => t.panelVoltages?.length || 0),
+                              20 // Default fallback minimum
+                            )
+                          }).map((_, i) => (
+                            <th key={i} className="px-4 py-3 font-bold text-slate-700 text-center min-w-[60px] border-r">P{i + 1}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nodeFaultStatusData.map((row, idx) => {
+                          const maxCols = Math.max(
+                            ...nodeFaultStatusData.map(d => Object.keys(d).filter(k => /^P\d+$/.test(k)).length),
+                            ...tables.map(t => t.panelVoltages?.length || 0),
+                            20
+                          );
+                          return (
+                            <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap border-r text-[11px]">
+                                {new Date(row.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                              </td>
+                              <td className="px-4 py-3 font-bold text-primary border-r">
+                                {row.node}
+                              </td>
+                              {Array.from({ length: maxCols }).map((_, i) => {
+                                const status = row[`P${i + 1}`] || 'unknown';
+                                let colorClass = 'text-slate-400';
+                                if (status === 'good') colorClass = 'text-green-600 font-medium';
+                                if (status === 'moderate') colorClass = 'text-yellow-600 font-bold';
+                                if (status === 'bad') colorClass = 'text-red-600 font-bold';
+
+                                return (
+                                  <td key={i} className={`px-2 py-3 text-center border-r text-xs ${colorClass}`}>
+                                    {status === 'unknown' ? '-' : status}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                        {nodeFaultStatusData.length === 0 && (
+                          <tr>
+                            <td colSpan={22} className="text-center py-8 text-muted-foreground italic">
+                              No fault status data available. Create some faults to see data here.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             ) : (
               <Card className="glass-card">
                 <CardContent className="p-0 overflow-auto">
@@ -1151,13 +1239,61 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             <Button
               className="flex-1 bg-yellow-600 hover:bg-yellow-700"
               onClick={async () => {
-                if (!user?.companyId) return;
-                if (!mfTableId) return;
+                if (!user?.companyId) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "User company ID not found.",
+                  });
+                  return;
+                }
+                if (!mfTableId) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Table ID not selected.",
+                  });
+                  return;
+                }
                 const cVal = parseFloat(mfCurrent);
                 const vVal = parseFloat(mfVoltage);
-                if (!Number.isFinite(cVal)) return;
+                if (!Number.isFinite(cVal)) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Invalid current value.",
+                  });
+                  return;
+                }
+                if (typeof mfPanelIndex !== 'number' || mfPanelIndex < 0) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Invalid panel index.",
+                  });
+                  return;
+                }
+                console.log('[MakeFault] Sending request:', {
+                  companyId: user.companyId,
+                  tableId: mfTableId,
+                  position: 'Main',
+                  index: mfPanelIndex,
+                  current: cVal,
+                  voltage: vVal,
+                  propagateSeries
+                });
                 try {
-                  const res = await setPanelCurrent(user.companyId, mfTableId, 'Main', mfPanelIndex, cVal, propagateSeries, vVal);
+                  const res = await setPanelCurrent(
+                    user.companyId,
+                    mfTableId,
+                    'Main',
+                    mfPanelIndex,
+                    cVal,
+                    propagateSeries,
+                    vVal,
+                    user.email,
+                    user.role
+                  );
                   if (res.success) {
                     toast({
                       title: "Success",
@@ -1179,7 +1315,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   toast({
                     variant: "destructive",
                     title: "Network Error",
-                    description: "Could not connect to the server.",
+                    description: e instanceof Error ? e.message : "Could not connect to the server.",
                   });
                 }
               }}

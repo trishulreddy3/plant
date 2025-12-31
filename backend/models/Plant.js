@@ -56,33 +56,99 @@ const embeddedUserSchema = new mongoose.Schema({
     }
 }); // Mongoose will now add a unique _id for each user record automatically
 
+// Embedded Schema for Node/Table Fault Status
+const faultStatusSchema = new mongoose.Schema({
+    node: String,
+    timestamp: { type: Date, default: Date.now }
+    // status, faults, description removed.
+    // Only node, timestamp, and P1..PN will be stored.
+}, { _id: false, strict: false });
+
 const companySchema = new mongoose.Schema({
     companyId: { type: String, required: true, unique: true },
     companyName: String,
 
-    // "Files" as Embedded Documents matching the User's Folder Structure
+    // --- EMBEDDED TABLES (Data Isolation) ---
+    // These "tables" are now physically inside the Company document.
+    // Deleting the company automatically deletes all this data.
 
-    // 1. admin.json
+    // 1. Login Credentials Table (Staff Data)
+    login_credentials: [new mongoose.Schema({
+        loginCredentials: {
+            userId: { type: String, default: () => `user-${Date.now()}` },
+            userName: String,
+            email: { type: String, required: true },
+            password: { type: String },
+            employeeName: String,
+            phoneNumber: String,
+            companyName: String,
+            role: String,
+            joinedOn: { type: Date, default: Date.now }
+        }
+    }, { _id: true })],
+
+    // 2. Login Details Table (Session Data)
+    login_details: [new mongoose.Schema({
+        loginDetails: {
+            userId: String,
+            userName: String,
+            sessions: [{
+                sessionId: Number,
+                loginTime: { type: Date, default: Date.now },
+                logoutTime: Date
+            }],
+            accountStatus: { type: String, default: 'active' },
+            attempts: { type: Number, default: 0 },
+            // Optional link back to company if needed within the object, but redundant given embedding
+            companyId: String
+        }
+    }, { _id: true })],
+
+    // 3. Node Fault Status Table
+    node_fault_status: [faultStatusSchema],
+
+    // 4. Live Data Table (Solar Panels)
+    // (mapped from plantDetails.live_data for visibility or usage)
+    live_data: [{
+        id: String,
+        node: String,
+        serialNumber: String,
+        panelCount: Number,
+        panelVoltages: [Number],
+        current: Number,
+        temparature: Number,
+        lightintensity: Number,
+        time: { type: Date, default: Date.now }
+    }],
+
+    // Folder Structure Emulation (Legacy/Frontend Compatibility)
     admin: { type: embeddedUserSchema, default: null },
-
-    // 2. management.json
     management: [embeddedUserSchema],
-
-    // 3. technicians.json
     technicians: [embeddedUserSchema],
-
-    // 4. entries/ folder (Technician Profiles/Entries)
     entries: [embeddedUserSchema],
 
-    // 5. plant_details.json (The actual plant data)
+    // Plant Configuration
     plantDetails: {
         plantPowerKW: Number,
         voltagePerPanel: { type: Number, default: 20 },
         currentPerPanel: { type: Number, default: 9.9 },
-        lastUpdated: { type: Date, default: Date.now }
+        lastUpdated: { type: Date, default: Date.now },
+        // Linked to the root live_data array
+        live_data: []
     }
 
 }, { timestamps: true });
+
+// Pre-save hook to sync plantDetails.live_data with root live_data if needed
+// Pre-save hook commented out to prevent migration issues
+// companySchema.pre('save', function (next) {
+//    if (this.isModified('live_data')) {
+//        this.plantDetails.live_data = this.live_data;
+//    } else if (this.isModified('plantDetails.live_data')) {
+//        this.live_data = this.plantDetails.live_data;
+//    }
+//    next();
+// });
 
 const Company = mongoose.model('Company', companySchema);
 module.exports = Company;

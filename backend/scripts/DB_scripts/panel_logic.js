@@ -105,7 +105,8 @@ const formatRecord = (record) => {
  */
 async function updatePanelCurrent(companyId, { tableId, position, index, current, voltage }) {
     console.log(`[panel_logic] updatePanelCurrent: table=${tableId}, pos=${position}, idx=${index}, cur=${current}, vol=${voltage}`);
-    const company = await Company.findOne({ companyId });
+    const cid = typeof companyId === 'object' ? companyId.companyId : companyId;
+    const company = await Company.findOne({ companyId: cid });
     if (!company) throw new Error('Company not found');
 
     const record = await LiveData.findOne({ companyId, node: tableId });
@@ -141,7 +142,8 @@ async function updatePanelCurrent(companyId, { tableId, position, index, current
 
 async function resolvePanel(companyId, { tableId, position, index }) {
     console.log(`[panel_logic] resolvePanel: table=${tableId}, pos=${position}, idx=${index}`);
-    const company = await Company.findOne({ companyId });
+    const cid = typeof companyId === 'object' ? companyId.companyId : companyId;
+    const company = await Company.findOne({ companyId: cid });
     if (!company) throw new Error('Company not found');
 
     const record = await LiveData.findOne({ companyId, node: tableId });

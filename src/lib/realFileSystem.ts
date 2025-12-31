@@ -111,13 +111,17 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    const headers: HeadersInit = { ...options.headers };
+    const headers: HeadersInit = {};
+    // Preserve any custom headers passed in options
+    if (options.headers) {
+      Object.assign(headers, options.headers);
+    }
     if (options.body) headers['Content-Type'] = 'application/json';
 
     const response = await fetch(url, {
+      ...options,
       headers,
       signal: controller.signal,
-      ...options,
     });
 
     clearTimeout(timeoutId);
@@ -219,8 +223,12 @@ export const getAdminCredentials = async (companyId: string): Promise<AdminCrede
   return await apiCall(`/companies/${companyId}/admin`);
 };
 
-export const deleteCompanyFolder = async (companyId: string) => {
-  return await apiCall(`/companies/${companyId}`, { method: 'DELETE' });
+export const deleteCompanyFolder = async (companyId: string, superAdminPassword?: string) => {
+  return await apiCall(`/companies/${companyId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ superAdminPassword })
+  });
 };
 
 export const verifySuperAdminPassword = async (password: string): Promise<boolean> => {
@@ -267,11 +275,17 @@ export const getNodeFaultHistory = async (companyId: string) => {
 
 export const setPanelCurrent = async (
   companyId: string, tableId: string, position: string,
-  index: number, current: number, propagate?: boolean, voltage?: number
+  index: number, current: number, propagate?: boolean, voltage?: number,
+  userEmail?: string, userRole?: string
 ) => {
+  const headers: HeadersInit = {};
+  if (userEmail) headers['x-user-email'] = userEmail;
+  if (userRole) headers['x-user-role'] = userRole;
+  
   return await apiCall(`/companies/${companyId}/panels/current`, {
     method: 'PUT',
-    body: JSON.stringify({ tableId, position, index, current, propagateSeries: propagate, voltage })
+    headers,
+    body: JSON.stringify({ tableId, position, index, current, propagateSeries: propagate, voltage, userEmail, userRole })
   });
 };
 

@@ -56,7 +56,12 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       // Get company data from backend
       const { getAllCompanies } = await import('@/lib/realFileSystem');
       const backendCompanies = await getAllCompanies();
-      const selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+      let selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+
+      if (!selectedCompany && user.companyName) {
+        selectedCompany = backendCompanies.find(c => c.name?.toLowerCase() === user.companyName?.toLowerCase());
+      }
+
       setCompany(selectedCompany);
 
       // Load plant details from file system
