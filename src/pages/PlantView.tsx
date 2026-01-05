@@ -11,7 +11,7 @@ const PlantView = () => {
 
   useEffect(() => {
     if (!user || user.role !== 'super_admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
 

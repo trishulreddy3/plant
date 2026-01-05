@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type UserRole = 'superadmin' | 'plantadmin' | 'technician';
+export type UserRole = 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'admin' | 'superadmin' | 'plantadmin';
 
 export interface User {
   id: string;
   email: string;
   role: UserRole;
   companyName?: string;
+  companyId?: string;
   name?: string;
 }
 
@@ -148,15 +149,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           adminPassword: ''
         }));
         setCompanies(mapped);
+
+        // CHECK: If user is logged in, verify their company still exists
+        const currentUser = user; // Capture current user for the check
+        if (currentUser && currentUser.role !== 'super_admin' && currentUser.companyId) {
+          const companyExists = backendCompanies.some((c: any) => c.id === currentUser.companyId || (currentUser.companyName && c.name?.toLowerCase() === currentUser.companyName.toLowerCase()));
+
+          if (!companyExists) {
+            console.warn('[AuthContext] User company no longer exists. Logging out.');
+            import('@/lib/auth').then(({ logout }) => logout());
+
+            // Show toast via window dispatch if toast hook is not available here or use a simple alert
+            // Since we are in Context, we can't easily rely on hook inside non-hook function comfortably without passing it in.
+            // We'll rely on the logout redirect to login page.
+            // But let's try to notify.
+            const event = new CustomEvent('company-deleted-logout');
+            window.dispatchEvent(event);
+          }
+        }
+
       } catch (error) {
         console.error('Error loading companies from backend:', error);
         // Fallback to initial companies
         setCompanies(INITIAL_COMPANIES);
       }
     };
+
     loadCompanies();
-    // User seeding now handled by backend API
-  }, []);
+
+    // Poll every 10 seconds to ensure validity
+    const interval = setInterval(loadCompanies, 10000);
+    return () => clearInterval(interval);
+
+  }, [user]); // Add user dependency so it re-checks when user changes or login happens
 
   // Companies are now managed by backend API, no localStorage needed
 
@@ -184,7 +209,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // For plant admins and users, use backend API
     if (companyName) {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/login', {
+        const { getApiBaseUrl } = await import('@/lib/realFileSystem');
+        const API_BASE_URL = getApiBaseUrl();
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -236,17 +263,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateTableConfig = (companyId: string, tableNumber: number, topRowPanels: number, bottomRowPanels: number) => {
     console.log(`Updating table config: Company ${companyId}, Table ${tableNumber}, Top: ${topRowPanels}, Bottom: ${bottomRowPanels}`);
-    
+
     setCompanies(prev => prev.map(company => {
       if (company.id === companyId) {
-        const updatedTableConfigs = company.tableConfigs.map(config => 
-          config.tableNumber === tableNumber 
+        const updatedTableConfigs = company.tableConfigs.map(config =>
+          config.tableNumber === tableNumber
             ? { ...config, topRowPanels, bottomRowPanels }
             : config
         );
-        
-        const updatedCompany = { 
-          ...company, 
+
+        const updatedCompany = {
+          ...company,
           tableConfigs: updatedTableConfigs,
           totalTables: updatedTableConfigs.length // Update total tables count
         };
@@ -259,7 +286,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addTable = (companyId: string, topRowPanels: number, bottomRowPanels: number) => {
     console.log(`Adding new table to company ${companyId} with ${topRowPanels} top + ${bottomRowPanels} bottom panels`);
-    
+
     setCompanies(prev => prev.map(company => {
       if (company.id === companyId) {
         const newTableNumber = company.tableConfigs.length + 1;
@@ -268,15 +295,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           topRowPanels,
           bottomRowPanels
         };
-        
+
         const updatedTableConfigs = [...company.tableConfigs, newTableConfig];
-        
-        const updatedCompany = { 
-          ...company, 
+
+        const updatedCompany = {
+          ...company,
           tableConfigs: updatedTableConfigs,
           totalTables: updatedTableConfigs.length
         };
-        
+
         console.log(`Added table ${newTableNumber} to company ${company.name}. New table count: ${updatedTableConfigs.length}`);
         return updatedCompany;
       }
@@ -286,24 +313,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteTable = (companyId: string, tableNumber: number) => {
     console.log(`Deleting table ${tableNumber} from company ${companyId}`);
-    
+
     setCompanies(prev => prev.map(company => {
       if (company.id === companyId) {
         // Remove the table config
         const updatedTableConfigs = company.tableConfigs.filter(config => config.tableNumber !== tableNumber);
-        
+
         // Renumber remaining tables to be sequential
         const renumberedConfigs = updatedTableConfigs.map((config, index) => ({
           ...config,
           tableNumber: index + 1
         }));
-        
-        const updatedCompany = { 
-          ...company, 
+
+        const updatedCompany = {
+          ...company,
           tableConfigs: renumberedConfigs,
           totalTables: renumberedConfigs.length
         };
-        
+
         console.log(`Deleted table ${tableNumber} from company ${company.name}. New table count: ${renumberedConfigs.length}`);
         return updatedCompany;
       }

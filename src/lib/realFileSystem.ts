@@ -1,90 +1,42 @@
-// Real file system operations using backend API
-// This creates actual physical folders and files on the system
+// this file handles all the network calls to our backend server.
+// it's where we fetch company data, update panels, manage staff etc.
 
-// Determine API base URL based on environment
-const getApiBaseUrl = () => {
-  // Check for custom API URL from environment variable (highest priority)
+// figure out where our API server is actually sitting
+export const getApiBaseUrl = () => {
+  // if we set a specific URL in .env, use that first
   if (import.meta.env.VITE_API_BASE_URL) {
-    console.log('🔧 Using VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
     return import.meta.env.VITE_API_BASE_URL;
   }
-  
-  // Check if we're in development mode
+
+  // in dev, try to hit the local server
   if (import.meta.env.DEV) {
-    console.log('🔧 Using development URL: localhost:5000');
     return 'http://localhost:5000/api';
   }
-  
-  // For production, use the production API URL
-  console.log('🔧 Using production URL: plant-9uk7.onrender.com');
+
+  // default for production (Render)
   return 'https://plant-9uk7.onrender.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
-console.log('🔧 API Base URL:', API_BASE_URL);
-
-// Debug logging
-console.log('🔧 API Configuration:', {
-  isDev: import.meta.env.DEV,
-  viteApiBaseUrl: import.meta.env.VITE_API_BASE_URL,
-  resolvedApiBaseUrl: API_BASE_URL
-});
-
-// Circuit breaker to prevent infinite retries
+// to stop the app from spamming the server when it's down
 const failedRequests = new Set<string>();
-const MAX_FAILED_ATTEMPTS = 3; // Increased back to 3
-const GLOBAL_FAILURE_THRESHOLD = 10; // Increased threshold
-const REQUEST_TIMEOUT = 15000; // 15 seconds timeout
-const RETRY_DELAY = 5000; // 5 seconds delay before retry
+const GLOBAL_FAILURE_THRESHOLD = 10;
+const REQUEST_TIMEOUT = 15000;
 
-// Helper function to reset circuit breaker (for debugging)
 export const resetCircuitBreaker = () => {
   failedRequests.clear();
-  console.log('🔄 Circuit breaker reset');
 };
 
-// Helper function to check circuit breaker status
-export const getCircuitBreakerStatus = () => {
-  return {
-    failedEndpoints: Array.from(failedRequests),
-    totalFailures: failedRequests.size,
-    isGlobalBreakerActive: failedRequests.size >= GLOBAL_FAILURE_THRESHOLD
-  };
-};
-
-// Enhanced API call function with better timeout handling
-const shouldSkipRequest = (endpoint: string): boolean => {
-  // Skip if this specific endpoint has failed
-  if (failedRequests.has(endpoint)) {
-    return true;
-  }
-  
-  // Skip if too many total failures (global circuit breaker)
-  if (failedRequests.size >= GLOBAL_FAILURE_THRESHOLD) {
-    console.warn(`🚫 Global circuit breaker activated. Total failures: ${failedRequests.size}`);
-    return true;
-  }
-  
-  return false;
-};
-
-// Helper function to mark request as failed
 const markRequestFailed = (endpoint: string): void => {
   failedRequests.add(endpoint);
-  console.warn(`🚫 Marking endpoint as failed: ${endpoint}. Total failed: ${failedRequests.size}`);
-  
-  // If we hit the global threshold, log a warning
-  if (failedRequests.size >= GLOBAL_FAILURE_THRESHOLD) {
-    console.error(`🚨 GLOBAL CIRCUIT BREAKER ACTIVATED! Too many failed requests (${failedRequests.size}). Stopping all API calls.`);
-  }
 };
 
-// Helper function to mark request as successful
 const markRequestSuccess = (endpoint: string): void => {
   failedRequests.delete(endpoint);
-  console.log(`✅ Marking endpoint as successful: ${endpoint}. Remaining failures: ${failedRequests.size}`);
 };
+
+// --- types ---
 
 export interface CompanyFolder {
   id: string;
@@ -120,476 +72,300 @@ export interface PlantDetails {
   currentPerPanel: number;
   powerPerPanel: number;
   plantPowerKW: number;
-  tables: PlantTable[];
-  createdAt: string;
+  live_data: any[]; // Changed from tables to live_data (Flat structure)
+  tables?: any[]; // Shim for legacy components
   lastUpdated: string;
 }
 
 export interface PlantTable {
   id: string;
   serialNumber: string;
-  panelsTop: number;
-  panelsBottom: number;
-  createdAt: string;
-  topPanels: {
-    voltage: number[];
-    current: number[];
-    power: number[];
-  };
-  bottomPanels: {
-    voltage: number[];
-    current: number[];
-    power: number[];
-  };
+  // Flat schema fields
+  node: string;
+  time: string;
+  temperature: number;
+  lightIntensity: number;
+  current: number;
+  panelVoltages: number[];
+  panelsCount: number;
+  // Legacy fields removed from strict type but handled as any if needed in migration
+
+
 }
 
-// API helper function with timeout
+export interface ResolvedTicket {
+  id: string;
+  trackId: string;
+  fault: string;
+  reason: string;
+  category: 'BAD' | 'MODERATE';
+  powerLoss: number;
+  resolvedAt: string;
+  resolvedBy: string;
+}
+
+// helper for fetching data with a timeout
 async function apiCall(endpoint: string, options: RequestInit = {}) {
   try {
-    // Temporarily disable circuit breaker for testing
-    // if (shouldSkipRequest(endpoint)) {
-    //   console.warn(`🚫 Skipping request to ${endpoint} due to circuit breaker`);
-    //   throw new Error(`Request skipped due to circuit breaker: ${endpoint}`);
-    // }
-
     const url = `${API_BASE_URL}${endpoint}`;
-    // Suppress noisy log for companies health check
-    const isCompaniesHealth = endpoint === '/companies' && (!options.method || options.method === 'GET');
-    if (!isCompaniesHealth) {
-      console.log('🌐 Making API call to:', url);
-    }
-    
-    // Add timeout to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT); // Use configurable timeout
-    
-    // Only set Content-Type for requests with a body
-    const headers: HeadersInit = {
-      ...options.headers,
-    };
-    
-    if (options.body) {
-      headers['Content-Type'] = 'application/json';
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    const headers: HeadersInit = {};
+    // Preserve any custom headers passed in options
+    if (options.headers) {
+      Object.assign(headers, options.headers);
     }
-    
+    if (options.body) headers['Content-Type'] = 'application/json';
+
     const response = await fetch(url, {
+      ...options,
       headers,
       signal: controller.signal,
-      ...options,
     });
 
     clearTimeout(timeoutId);
-    console.log('📡 API response status:', response.status, response.statusText);
 
     if (!response.ok) {
       markRequestFailed(endpoint);
-      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      throw new Error(`API failed: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('📦 API response data:', data);
-    
-    // Mark as successful to reset circuit breaker
     markRequestSuccess(endpoint);
     return data;
   } catch (error: any) {
-    // Demote noisy logs when server is offline, especially for health checks
-    const isNetworkError = error && (error.name === 'TypeError' || error.message?.includes('Failed to fetch'));
-    if (isNetworkError && endpoint === '/companies' && (!options.method || options.method === 'GET')) {
-      // Suppress logging for health check
-    } else if (error?.name === 'AbortError') {
-      console.warn('⏰ Request timed out');
-      markRequestFailed(endpoint);
-    } else {
-      console.error('❌ API call error:', error);
+    if (error?.name !== 'AbortError') {
+      console.warn('Network issue:', error?.message);
     }
     throw error;
   }
 }
 
-// Get all companies with their folder information
+export const getStaffEntries = async (companyId: string) => {
+  return apiCall(`/companies/${companyId}/entries`);
+};
+
+// --- API Methods ---
+
 export const getAllCompanies = async (): Promise<CompanyFolder[]> => {
   return await apiCall('/companies');
 };
 
-// Create company folder with all necessary files
 export const createCompanyFolder = async (
-  companyId: string,
-  companyName: string,
-  voltagePerPanel: number,
-  currentPerPanel: number,
-  plantPowerKW: number,
-  adminEmail: string,
-  adminPassword: string,
-  adminName: string
-): Promise<{ success: boolean; message: string; companyPath: string }> => {
+  companyId: string, companyName: string,
+  v: number, c: number, p: number,
+  email: string, pass: string, name: string
+) => {
   return await apiCall('/companies', {
     method: 'POST',
-    body: JSON.stringify({
-      companyId,
-      companyName,
-      voltagePerPanel,
-      currentPerPanel,
-      plantPowerKW,
-      adminEmail,
-      adminPassword,
-      adminName,
-    }),
+    body: JSON.stringify({ companyId, companyName, voltagePerPanel: v, currentPerPanel: c, plantPowerKW: p, adminEmail: email, adminPassword: pass, adminName: name }),
   });
 };
 
-// Add table to company plant details
-export const addTableToPlant = async (
-  companyId: string,
-  panelsTop: number,
-  panelsBottom: number
-): Promise<{ success: boolean; message: string; table: PlantTable }> => {
+export const addTableToPlant = async (companyId: string, panelCount: number) => {
   return await apiCall(`/companies/${companyId}/tables`, {
     method: 'POST',
-    body: JSON.stringify({
-      panelsTop,
-      panelsBottom,
-    }),
+    body: JSON.stringify({ panelCount }),
   });
 };
 
-// Update existing table (adjust panelsTop/panelsBottom)
-export const updateTableInPlant = async (
-  companyId: string,
-  tableId: string,
-  panelsTop: number,
-  panelsBottom: number,
-  serialNumber?: string
-): Promise<{ success: boolean; message: string; table: PlantTable }> => {
+export const updateTableInPlant = async (companyId: string, tableId: string, panelCount: number, sn?: string) => {
   return await apiCall(`/companies/${companyId}/tables/${tableId}`, {
     method: 'PUT',
-    body: JSON.stringify({ panelsTop, panelsBottom, serialNumber }),
+    body: JSON.stringify({ panelCount, serialNumber: sn }),
   });
 };
 
-// Update plant voltage/current and regenerate panel data
-export const updatePlantSettings = async (
-  companyId: string,
-  voltagePerPanel: number,
-  currentPerPanel: number
-): Promise<{ success: boolean; message: string; plant: PlantDetails }> => {
+export const updatePlantSettings = async (companyId: string, v: number, c: number) => {
   return await apiCall(`/companies/${companyId}/plant`, {
     method: 'PUT',
-    body: JSON.stringify({ voltagePerPanel, currentPerPanel }),
+    body: JSON.stringify({ voltagePerPanel: v, currentPerPanel: c }),
   });
 };
 
-// Delete a table from plant
-export const deleteTableFromPlant = async (
-  companyId: string,
-  tableId: string
-): Promise<{ success: boolean; message: string }> => {
-  return await apiCall(`/companies/${companyId}/tables/${tableId}`, {
-    method: 'DELETE',
-  });
+export const deleteTableFromPlant = async (companyId: string, tableId: string) => {
+  return await apiCall(`/companies/${companyId}/tables/${tableId}`, { method: 'DELETE' });
 };
 
-// Add staff entry to company
 export const addStaffEntry = async (
-  companyId: string,
-  companyName: string,
-  name: string,
+  companyId: string, companyName: string, name: string,
   role: 'management' | 'admin' | 'technician',
-  email: string,
-  phoneNumber: string,
-  password: string,
-  createdBy: string
-): Promise<{ success: boolean; message: string; entry: any }> => {
+  email: string, phone: string, pass: string, creator: string
+) => {
   return await apiCall(`/companies/${companyId}/entries`, {
     method: 'POST',
-    body: JSON.stringify({
-      companyName,
-      name,
-      role,
-      email,
-      phoneNumber,
-      password,
-      createdBy,
-    }),
+    body: JSON.stringify({ companyName, name, role, email, phoneNumber: phone, password: pass, createdBy: creator }),
   });
 };
 
-// Add technician to company
-export const addTechnicianToCompany = async (
-  companyId: string,
-  email: string,
-  password: string,
-  role: 'admin' | 'technician',
-  createdBy: string
-): Promise<{ success: boolean; message: string; technician: UserCredentials }> => {
-  return await apiCall(`/companies/${companyId}/technicians`, {
-    method: 'POST',
-    body: JSON.stringify({
-      email,
-      password,
-      role,
-      createdBy,
-    }),
-  });
-};
-
-// Legacy function name for backward compatibility
-export const addUserToCompany = async (
-  companyId: string,
-  email: string,
-  password: string,
-  role: 'admin' | 'technician',
-  createdBy: string
-): Promise<{ success: boolean; message: string; user: UserCredentials }> => {
-  const result = await addTechnicianToCompany(companyId, email, password, role, createdBy);
-  return { ...result, user: result.technician };
-};
-
-// Get plant details for a company
 export const getPlantDetails = async (companyId: string): Promise<PlantDetails | null> => {
   try {
-    return await apiCall(`/companies/${companyId}`);
-  } catch (error) {
-    console.error(`Error loading plant details for company ${companyId}:`, error);
-    // Return null instead of throwing to prevent infinite loops
+    const data = await apiCall(`/companies/${companyId}`);
+    if (data && data.live_data) {
+      data.tables = data.live_data;
+    }
+    return data;
+  } catch {
     return null;
   }
 };
 
-// Get technicians for a company
 export const getTechnicians = async (companyId: string): Promise<UserCredentials[]> => {
   return await apiCall(`/companies/${companyId}/technicians`);
 };
 
-// Get management users for a company
 export const getManagement = async (companyId: string): Promise<UserCredentials[]> => {
   return await apiCall(`/companies/${companyId}/management`);
 };
 
-// Legacy function name for backward compatibility
-export const getUsers = async (companyId: string): Promise<UserCredentials[]> => {
-  // Prefer aggregated endpoint; fallback to separate lists
-  try {
-    const data = await apiCall(`/companies/${companyId}/users`);
-    const techs: UserCredentials[] = Array.isArray(data?.technicians) ? data.technicians : [];
-    const mgmt: UserCredentials[] = Array.isArray(data?.management) ? data.management : [];
-    return [...techs, ...mgmt];
-  } catch (e) {
-    const [techs, mgmt] = await Promise.all([
-      getTechnicians(companyId).catch(() => []),
-      getManagement(companyId).catch(() => []),
-    ]);
-    return [...techs, ...mgmt];
-  }
-};
-
-// Get admin credentials for a company
 export const getAdminCredentials = async (companyId: string): Promise<AdminCredentials> => {
   return await apiCall(`/companies/${companyId}/admin`);
 };
 
-// Delete entire company folder
-export const deleteCompanyFolder = async (companyId: string): Promise<{ success: boolean; message: string }> => {
+export const deleteCompanyFolder = async (companyId: string, superAdminPassword?: string) => {
   return await apiCall(`/companies/${companyId}`, {
     method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ superAdminPassword })
   });
 };
 
-// Resolved tickets (defect resolution) API
-export interface ResolvedTicketPayload {
-  trackId: string;
-  fault: string; // e.g., TBL-0001.TOP.P5
-  reason: string;
-  category: 'BAD' | 'MODERATE';
-  powerLoss: number; // kW
-  predictedLoss?: number; // kW (optional)
-  resolvedAt: string; // ISO
-  resolvedBy: string; // email
-}
+export const verifySuperAdminPassword = async (password: string): Promise<boolean> => {
+  try {
+    const res = await apiCall('/verify-super-admin-password', {
+      method: 'POST',
+      body: JSON.stringify({ password })
+    });
+    return res.success;
+  } catch (e) {
+    return false;
+  }
+};
 
-export interface ResolvedTicket extends ResolvedTicketPayload {
-  id: string;
-  companyId: string;
-}
-
-export const createResolvedTicket = async (
-  companyId: string,
-  payload: ResolvedTicketPayload
-): Promise<{ success: boolean; message?: string; ticket?: ResolvedTicket }> => {
+export const createResolvedTicket = async (companyId: string, payload: any) => {
   return await apiCall(`/companies/${companyId}/tickets/resolve`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 };
 
-export const getResolvedTickets = async (
-  companyId: string
-): Promise<ResolvedTicket[]> => {
+export const getResolvedTickets = async (companyId: string): Promise<ResolvedTicket[]> => {
   return await apiCall(`/companies/${companyId}/tickets?status=resolved`);
 };
 
-// Resolve a specific panel and reset its values to defaults
-export const resolvePanel = async (
-  companyId: string,
-  tableId: string,
-  position: 'top' | 'bottom',
-  index: number
-): Promise<{ success: boolean; message?: string }> => {
+export const resolvePanel = async (companyId: string, tableId: string, position: string, index: number) => {
   return await apiCall(`/companies/${companyId}/resolve-panel`, {
     method: 'PUT',
-    body: JSON.stringify({ tableId, position, index })
+    body: JSON.stringify({ tableId, position, index }),
   });
 };
 
-// Testing tool: set panel current and optionally propagate series fault
+export const getNodeFaultStatus = async (companyId: string) => {
+  return await apiCall(`/companies/${companyId}/node-fault-status`);
+};
+
+export const getFlatLiveData = async (companyId: string) => {
+  return await apiCall(`/companies/${companyId}/live-data`);
+};
+
+export const getNodeFaultHistory = async (companyId: string) => {
+  return await apiCall(`/companies/${companyId}/node-fault-history`);
+};
+
 export const setPanelCurrent = async (
-  companyId: string,
-  tableId: string,
-  position: 'top' | 'bottom',
-  index: number,
-  current: number,
-  propagateSeries?: boolean
-): Promise<{ success: boolean; message?: string }> => {
+  companyId: string, tableId: string, position: string,
+  index: number, current: number, propagate?: boolean, voltage?: number,
+  userEmail?: string, userRole?: string
+) => {
+  const headers: HeadersInit = {};
+  if (userEmail) headers['x-user-email'] = userEmail;
+  if (userRole) headers['x-user-role'] = userRole;
+  
   return await apiCall(`/companies/${companyId}/panels/current`, {
     method: 'PUT',
-    body: JSON.stringify({ tableId, position, index, current, propagateSeries })
+    headers,
+    body: JSON.stringify({ tableId, position, index, current, propagateSeries: propagate, voltage, userEmail, userRole })
   });
 };
 
-// Check if backend server is running
-export const checkServerStatus = async (): Promise<boolean> => {
-  const maxRetries = 2; // Reduced from 3 to prevent infinite loops
-  const retryDelay = 1000; // 1 second
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`🔍 Checking server status (attempt ${attempt}/${maxRetries}) at:`, `${API_BASE_URL}/companies`);
-      const result = await apiCall('/companies');
-      console.log('✅ Server status check successful:', result);
-      return true;
-    } catch (error) {
-      console.error(`❌ Server status check failed (attempt ${attempt}/${maxRetries}):`, error);
-      
-      if (attempt < maxRetries) {
-        console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  }
-  
-  console.error('❌ All server status check attempts failed');
-  return false;
-};
-
-// Get panel health percentage from plant details
-export const getPanelHealthPercentage = (
-  plantDetails: PlantDetails,
-  tableId: string,
-  position: 'top' | 'bottom',
-  panelIndex: number
-): number => {
-  const table = plantDetails.tables.find(t => t.id === tableId);
-  if (!table) return 0;
-
-  const panelData = position === 'top' ? table.topPanels : table.bottomPanels;
-  const actualPower = panelData.power[panelIndex];
-  const expectedPower = plantDetails.powerPerPanel;
-  
-  return Math.round((actualPower / expectedPower) * 100);
-};
-
-// Get panel status based on health percentage
-export const getPanelStatus = (healthPercentage: number): 'good' | 'average' | 'fault' => {
-  if (healthPercentage >= 100) return 'good';
-  if (healthPercentage >= 50) return 'average';
-  return 'fault';
-};
-
-export const deletePanel = async (companyId: string, panelId: string): Promise<boolean> => {
-  try {
-    const API_BASE_URL = getApiBaseUrl();
-    
-    // Extract tableId from panelId (format: tableId-position-index)
-    const tableId = panelId.split('-').slice(0, -2).join('-');
-    
-    const response = await fetch(`${API_BASE_URL}/companies/${companyId}/tables/${tableId}/panels/${panelId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete panel: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return result.success;
-  } catch (error) {
-    console.error('Error deleting panel:', error);
-    return false;
-  }
+export const deletePanel = async (companyId: string, panelId: string) => {
+  const tableId = panelId.split('-').slice(0, -2).join('-');
+  const res = await apiCall(`/companies/${companyId}/tables/${tableId}/panels/${panelId}`, { method: 'DELETE' });
+  return res.success;
 };
 
 export const refreshPanelData = async (companyId: string): Promise<boolean> => {
+  const res = await apiCall(`/companies/${companyId}/refresh-panel-data`, { method: 'PUT' });
+  return res.success;
+};
+
+export const addPanels = async (companyId: string, tableId: string, position: string, panelCount: number): Promise<boolean> => {
+  const res = await apiCall(`/companies/${companyId}/tables/${tableId}/add-panels`, {
+    method: 'POST',
+    body: JSON.stringify({ position: 'default', panelCount }),
+  });
+  return res.success;
+};
+
+// legacy helpers
+export const addUserToCompany = async (companyId: string, email: string, pass: string, role: any, creator: string) => {
+  return await apiCall(`/companies/${companyId}/technicians`, {
+    method: 'POST',
+    body: JSON.stringify({ email, password: pass, role, createdBy: creator }),
+  });
+};
+
+export const getUsers = async (companyId: string): Promise<UserCredentials[]> => {
+  const data = await apiCall(`/companies/${companyId}/users`);
+  const techs = Array.isArray(data?.technicians) ? data.technicians : [];
+  const mgmt = Array.isArray(data?.management) ? data.management : [];
+  return [...techs, ...mgmt];
+};
+
+export const checkServerStatus = async () => {
   try {
-    const API_BASE_URL = getApiBaseUrl();
-    
-    const response = await fetch(`${API_BASE_URL}/companies/${companyId}/refresh-panel-data`, {
-      method: 'PUT',
-      // Don't set Content-Type for requests without body
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to refresh panel data: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return result.success;
-  } catch (error) {
-    console.error('Error refreshing panel data:', error);
+    await apiCall('/companies');
+    return true;
+  } catch {
     return false;
   }
 };
 
-// Add panels to existing table
-export const addPanels = async (companyId: string, tableId: string, position: 'top' | 'bottom', panelCount: number): Promise<boolean> => {
-  try {
-    const response = await apiCall(`/companies/${companyId}/tables/${tableId}/add-panels`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ position, panelCount }),
-    });
-
-    if (response.success) {
-      console.log(`✅ Added ${panelCount} panel(s) to ${position} side of table ${tableId}`);
-      return true;
-    } else {
-      console.error('Failed to add panels:', response.error);
-      return false;
-    }
-  } catch (error) {
-    console.error('Error adding panels:', error);
-    return false;
-  }
+export const updateStaffStatus = async (companyId: string, entryId: string, status: 'active' | 'blocked') => {
+  return apiCall(`/companies/${companyId}/entries/${entryId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
 };
 
-// Debug utilities for production troubleshooting
-if (typeof window !== 'undefined') {
-  // Make circuit breaker functions available in browser console
-  (window as any).resetCircuitBreaker = resetCircuitBreaker;
-  (window as any).getCircuitBreakerStatus = getCircuitBreakerStatus;
-  (window as any).testApiConnection = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/companies`);
-      console.log('✅ API Connection Test:', response.status, response.statusText);
-      return { success: true, status: response.status };
-    } catch (error) {
-      console.error('❌ API Connection Test Failed:', error);
-      return { success: false, error: error.message };
-    }
-  };
-}
+// helper to get health % from the raw plant data
+export const getPanelHealthPercentage = (
+  plantDetails: PlantDetails,
+  tableId: string,
+  position?: string,
+  panelIndex: number = 0
+): number => {
+  const table = (plantDetails.live_data || []).find(t => t.id === tableId);
+  if (!table) return 0;
 
+  const vp = plantDetails.voltagePerPanel || 20;
+  const voltages = table.panelVoltages || [];
+
+  // If position is provided (legacy), try to offset (though backend should flatten it now)
+  // New backend uses flat 0..N, so if frontend passes 0..N, it works.
+  // If frontend passes 'bottom' and index 0, we might need to know 'topCount' to offset.
+  // But since we are removing top/bottom, let's assume raw index for now.
+  // If legacy logic persists, we might look for 'panelsTop' property on table.
+  const flatIndex = panelIndex;
+
+  const voltage = voltages[flatIndex] || 0;
+  return Math.round((voltage / vp) * 100);
+};
+
+// helper to categorize health into status buckets
+export const getPanelStatus = (healthPercentage: number): 'good' | 'average' | 'fault' => {
+  if (healthPercentage >= 98) return 'good';
+  if (healthPercentage >= 50) return 'average';
+  return 'fault';
+};

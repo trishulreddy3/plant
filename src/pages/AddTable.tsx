@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Plus, Shield, Mail, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, Zap } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { addTableToPlant, getPlantDetails, PlantDetails } from '@/lib/realFileSystem';
 import { validateUserCompany } from '@/lib/companySync';
@@ -16,40 +16,37 @@ const AddTable = () => {
   const { toast } = useToast();
   const user = getCurrentUser();
   const [formData, setFormData] = useState({
-    panelsTop: '20',
-    panelsBottom: '20',
+    panelCount: '20',
     voltagePerPanel: '',
     currentPerPanel: '',
   });
   const [plantDetails, setPlantDetails] = useState<PlantDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState({
-    panelsTop: '',
-    panelsBottom: '',
+    panelCount: '',
   });
-  const [lastTableNumber, setLastTableNumber] = useState<string>('');
   const [nextTableNumber, setNextTableNumber] = useState<string>('');
 
   // Real-time validation function
-  const validatePanelCount = (field: 'panelsTop' | 'panelsBottom', value: string) => {
+  const validatePanelCount = (value: string) => {
     const numValue = parseInt(value);
-    
+
     if (value === '') {
-      setValidationErrors(prev => ({ ...prev, [field]: '' }));
+      setValidationErrors(prev => ({ ...prev, panelCount: '' }));
       return;
     }
-    
+
     if (isNaN(numValue) || numValue < 0) {
-      setValidationErrors(prev => ({ ...prev, [field]: 'Must be a positive number' }));
+      setValidationErrors(prev => ({ ...prev, panelCount: 'Must be a positive number' }));
       return;
     }
-    
+
     if (numValue > 20) {
-      setValidationErrors(prev => ({ ...prev, [field]: 'Maximum 20 panels allowed per row' }));
+      setValidationErrors(prev => ({ ...prev, panelCount: 'Maximum 20 panels allowed per Node' }));
       return;
     }
-    
-    setValidationErrors(prev => ({ ...prev, [field]: '' }));
+
+    setValidationErrors(prev => ({ ...prev, panelCount: '' }));
   };
 
   // Load plant details to get default voltage and current values
@@ -71,24 +68,22 @@ const AddTable = () => {
             currentPerPanel: details.currentPerPanel?.toString() || '10',
           }));
 
-          // Compute last and next table numbers from existing tables
+          // Compute next table number from existing tables
           const tables = details.tables || [];
           let maxNum = 0;
-          let lastSerial = '';
           for (const t of tables) {
-            const sn: string = t.serialNumber || '';
+            // Check for both TBL and Node prefixes
+            const sn: string = t.node || t.serialNumber || '';
             const m = sn.match(/(\d+)/);
             if (m) {
               const n = parseInt(m[1], 10);
               if (!isNaN(n) && n >= maxNum) {
                 maxNum = n;
-                lastSerial = sn;
               }
             }
           }
-          const pad = (n: number) => n.toString().padStart(4, '0');
-          const nextNumber = pad((maxNum + 1) || 1);
-          setLastTableNumber(lastSerial || '—');
+          const pad = (n: number) => n.toString().padStart(3, '0');
+          const nextNumber = `Node-${pad((maxNum + 1) || 1)}`;
           setNextTableNumber(nextNumber);
         }
       } catch (error) {
@@ -109,7 +104,7 @@ const AddTable = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user || !user.companyId) {
       toast({
         title: 'Error',
@@ -119,12 +114,11 @@ const AddTable = () => {
       return;
     }
 
-    const panelsTop = isNaN(parseInt(formData.panelsTop)) ? 0 : parseInt(formData.panelsTop);
-    const panelsBottom = isNaN(parseInt(formData.panelsBottom)) ? 0 : parseInt(formData.panelsBottom);
+    const panelCount = isNaN(parseInt(formData.panelCount)) ? 0 : parseInt(formData.panelCount);
     const voltagePerPanel = parseFloat(formData.voltagePerPanel);
     const currentPerPanel = parseFloat(formData.currentPerPanel);
 
-    if (panelsTop < 0 || panelsBottom < 0) {
+    if (panelCount <= 0) {
       toast({
         title: 'Invalid Input',
         description: 'Number of panels must be positive',
@@ -133,19 +127,10 @@ const AddTable = () => {
       return;
     }
 
-    if (panelsTop > 20 || panelsBottom > 20) {
+    if (panelCount > 20) {
       toast({
         title: 'Invalid Input',
-        description: 'Maximum 20 panels allowed per row (top and bottom)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (panelsTop === 0 && panelsBottom === 0) {
-      toast({
-        title: 'Invalid Input',
-        description: 'Provide at least one row with panels (top or bottom)',
+        description: 'Maximum 20 panels allowed per Node',
         variant: 'destructive',
       });
       return;
@@ -172,15 +157,14 @@ const AddTable = () => {
         return;
       }
 
-      // Add table to company plant details file with realistic panel arrays (backend authoritative)
-      const plantTableResult = await addTableToPlant(user.companyId, panelsTop, panelsBottom);
+      // Add table to company plant details
+      const plantTableResult = await addTableToPlant(user.companyId, panelCount);
 
-      // Calculate power per panel using custom values
       const powerPerPanel = voltagePerPanel * currentPerPanel;
 
       toast({
         title: 'Success!',
-        description: `Table ${plantTableResult.table.serialNumber} created with ${panelsTop + panelsBottom} panel(s) (${powerPerPanel}W per panel)`,
+        description: `Node ${plantTableResult.table.node} created with ${panelCount} panels (${powerPerPanel}W per panel)`,
       });
 
       navigate('/plant-admin-dashboard/infrastructure');
@@ -188,14 +172,14 @@ const AddTable = () => {
       console.error('Error creating table:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create table. The company may not exist in the backend system. Please contact the super admin.',
+        description: 'Failed to create Node. Please contact the administrator.',
         variant: 'destructive',
       });
     }
   };
 
   if (!user || user.role !== 'plant_admin') {
-    navigate('/admin-login');
+    navigate('/login');
     return null;
   }
 
@@ -266,198 +250,158 @@ const AddTable = () => {
           0% {
             rotate: 0deg;
           }
-          33% {
-            rotate: 10deg;
-          }
-          66% {
-            rotate: -10deg;
-          }
-          100% {
-            rotate: 10deg;
-          }
         }
       `}</style>
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-      <div className="container max-w-2xl mx-auto py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/plant-admin-dashboard/infrastructure')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Infrastructure
-        </Button>
+        <div className="container max-w-2xl mx-auto py-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/plant-admin-dashboard/infrastructure')}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Infrastructure
+          </Button>
 
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Plus className="h-6 w-6 text-primary" />
-              Add New Table
-            </CardTitle>
-            <CardDescription>
-              Configure panel layout for the new table. Maximum 20 panels per row (top and bottom). Serial number will be generated automatically.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Table Number (auto sequence) */}
-              <div className="space-y-2">
-                <Label>Table Number (continues sequence)</Label>
-                <Input value={nextTableNumber || '—'} readOnly className="h-12 bg-muted font-semibold" />
-              </div>
-
-              <div className="space-y-4">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <Plus className="h-6 w-6 text-primary" />
+                Add New Node
+              </CardTitle>
+              <CardDescription>
+                Configure panel layout for the new node. Maximum 20 panels per node.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Node Number (auto sequence) */}
                 <div className="space-y-2">
-                  <Label htmlFor="panelsTop">Number of Panels (Top Row)</Label>
-                  <Input
-                    id="panelsTop"
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={formData.panelsTop}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, panelsTop: value });
-                      validatePanelCount('panelsTop', value);
-                    }}
-                    placeholder="20"
-                    className={`h-12 ${validationErrors.panelsTop ? 'border-red-500 focus:border-red-500' : ''}`}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum 20 panels per row
-                  </p>
-                  {validationErrors.panelsTop && (
-                    <p className="text-xs text-red-500 font-medium">
-                      ⚠️ {validationErrors.panelsTop}
-                    </p>
-                  )}
+                  <Label>Node Number (Next in sequence)</Label>
+                  <Input value={nextTableNumber || '—'} readOnly className="h-12 bg-muted font-semibold" />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="panelsBottom">Number of Panels (Bottom Row)</Label>
-                  <Input
-                    id="panelsBottom"
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={formData.panelsBottom}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, panelsBottom: value });
-                      validatePanelCount('panelsBottom', value);
-                    }}
-                    placeholder="20"
-                    className={`h-12 ${validationErrors.panelsBottom ? 'border-red-500 focus:border-red-500' : ''}`}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum 20 panels per row
-                  </p>
-                  {validationErrors.panelsBottom && (
-                    <p className="text-xs text-red-500 font-medium">
-                      ⚠️ {validationErrors.panelsBottom}
-                    </p>
-                  )}
-                </div>
-
-                {/* Panel Specifications */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-primary" />
-                    Panel Specifications
-                  </h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
-                      <Input
-                        id="voltagePerPanel"
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={formData.voltagePerPanel}
-                        onChange={(e) => setFormData({ ...formData, voltagePerPanel: e.target.value })}
-                        placeholder="20"
-                        required
-                        className="h-12"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Default: {plantDetails?.voltagePerPanel || 20}V
+                  <div className="space-y-2">
+                    <Label htmlFor="panelCount">Number of Panels</Label>
+                    <Input
+                      id="panelCount"
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={formData.panelCount}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, panelCount: value });
+                        validatePanelCount(value);
+                      }}
+                      placeholder="20"
+                      className={`h-12 ${validationErrors.panelCount ? 'border-red-500 focus:border-red-500' : ''}`}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Maximum 20 panels per node
+                    </p>
+                    {validationErrors.panelCount && (
+                      <p className="text-xs text-red-500 font-medium">
+                        ⚠️ {validationErrors.panelCount}
                       </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="currentPerPanel">Current per Panel (A)</Label>
-                      <Input
-                        id="currentPerPanel"
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={formData.currentPerPanel}
-                        onChange={(e) => setFormData({ ...formData, currentPerPanel: e.target.value })}
-                        placeholder="10"
-                        required
-                        className="h-12"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Default: {plantDetails?.currentPerPanel || 10}A
-                      </p>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Power Calculation */}
-                  {formData.voltagePerPanel && formData.currentPerPanel && (
+                  {/* Panel Specifications */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Panel Specifications
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
+                        <Input
+                          id="voltagePerPanel"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={formData.voltagePerPanel}
+                          onChange={(e) => setFormData({ ...formData, voltagePerPanel: e.target.value })}
+                          placeholder="20"
+                          required
+                          className="h-12"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: {plantDetails?.voltagePerPanel || 20}V
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPerPanel">Current per Panel (A)</Label>
+                        <Input
+                          id="currentPerPanel"
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={formData.currentPerPanel}
+                          onChange={(e) => setFormData({ ...formData, currentPerPanel: e.target.value })}
+                          placeholder="10"
+                          required
+                          className="h-12"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: {plantDetails?.currentPerPanel || 10}A
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Power Calculation */}
+                    {formData.voltagePerPanel && formData.currentPerPanel && (
+                      <div className="p-4 bg-accent/20 rounded-lg border border-accent">
+                        <p className="text-sm font-semibold">Power per Panel</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {parseFloat(formData.voltagePerPanel || '0') * parseFloat(formData.currentPerPanel || '0')}W
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {(formData.panelCount !== '') && (
                     <div className="p-4 bg-accent/20 rounded-lg border border-accent">
-                      <p className="text-sm font-semibold">Power per Panel</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {parseFloat(formData.voltagePerPanel || '0') * parseFloat(formData.currentPerPanel || '0')}W
+                      <p className="text-sm font-semibold">Total Panels</p>
+                      <p className="text-3xl font-bold text-primary">
+                        {isNaN(parseInt(formData.panelCount)) ? 0 : parseInt(formData.panelCount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Capacity: 20 panels max
                       </p>
                     </div>
                   )}
                 </div>
 
-                {(formData.panelsTop !== '' || formData.panelsBottom !== '') && (
-                  <div className="p-4 bg-accent/20 rounded-lg border border-accent">
-                    <p className="text-sm font-semibold">Total Panels</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {(isNaN(parseInt(formData.panelsTop)) ? 0 : parseInt(formData.panelsTop)) + (isNaN(parseInt(formData.panelsBottom)) ? 0 : parseInt(formData.panelsBottom))}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Top: {formData.panelsTop} panels | Bottom: {formData.panelsBottom} panels
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Maximum capacity: 40 panels per table (20 top + 20 bottom)
-                    </p>
-                  </div>
-                )}
-              </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 gradient-primary"
+                  disabled={loading || validationErrors.panelCount !== ''}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  {loading ? 'Loading...' : 'Create Node'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 gradient-primary" 
-                disabled={loading || validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== ''}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                {loading ? 'Loading...' : 'Create Table'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Not Allowed Button - Shows when validation errors exist */}
-        {(validationErrors.panelsTop !== '' || validationErrors.panelsBottom !== '') && (
-          <button className="not-allowed-button">
-            <span>Not allowed!</span>
-            <span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeMiterlimit="2" strokeLinejoin="round" fillRule="evenodd" clipRule="evenodd">
-                <path fillRule="nonzero" d="m12.002 2.005c5.518 0 9.998 4.48 9.998 9.997 0 5.518-4.48 9.998-9.998 9.998-5.517 0-9.997-4.48-9.997-9.998 0-5.517 4.48-9.997 9.997-9.997zm0 1.5c-4.69 0-8.497 3.807-8.497 8.497s3.807 8.498 8.497 8.498 8.498-3.808 8.498-8.498-3.808-8.497-8.498-8.497zm0 7.425 2.717-2.718c.146-.146.339-.219.531-.219.404 0 .75.325.75.75 0 .193-.073.384-.219.531l-2.717 2.717 2.727 2.728c.147.147.22.339.22.531 0 .427-.349.75-.75.75-.192 0-.384-.073-.53-.219l-2.729-2.728-2.728 2.728c-.146.146-.338.219-.53.219-.401 0-.751-.323-.751-.75 0-.192.073-.384.22-.531l2.728-2.728-2.722-2.722c-.146-.147-.219-.338-.219-.531 0-.425.346-.749.75-.749.192 0 .385.073.531.219z"></path>
-              </svg>
-            </span>
-          </button>
-        )}
+          {/* Not Allowed Button - Shows when validation errors exist */}
+          {(validationErrors.panelCount !== '') && (
+            <button className="not-allowed-button">
+              <span>Not allowed!</span>
+              <span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" strokeMiterlimit="2" strokeLinejoin="round" fillRule="evenodd" clipRule="evenodd">
+                  <path fillRule="nonzero" d="m12.002 2.005c5.518 0 9.998 4.48 9.998 9.997 0 5.518-4.48 9.998-9.998 9.998-5.517 0-9.997-4.48-9.997-9.998 0-5.517 4.48-9.997 9.997-9.997zm0 1.5c-4.69 0-8.497 3.807-8.497 8.497s3.807 8.498 8.497 8.498 8.498-3.808 8.498-8.498-3.808-8.497-8.498-8.497zm0 7.425 2.717-2.718c.146-.146.339-.219.531-.219.404 0 .75.325.75.75 0 .193-.073.384-.219.531l-2.717 2.717 2.727 2.728c.147.147.22.339.22.531 0 .427-.349.75-.75.75-.192 0-.384-.073-.53-.219l-2.729-2.728-2.728 2.728c-.146.146-.338.219-.53.219-.401 0-.751-.323-.751-.75 0-.192.073-.384.22-.531l2.728-2.728-2.722-2.722c-.146-.147-.219-.338-.219-.531 0-.425.346-.749.75-.749.192 0 .385.073.531.219z"></path>
+                </svg>
+              </span>
+            </button>
+          )}
+        </div>
       </div>
-
-      
-    </div>
     </>
   );
 };

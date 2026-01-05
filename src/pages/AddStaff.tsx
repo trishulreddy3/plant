@@ -16,7 +16,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
   const location = useLocation();
   const { toast } = useToast();
   const user = getCurrentUser();
-  
+
   // Check if we're in the plant admin dashboard context
   const isInDashboard = location.pathname.includes('/plant-admin-dashboard') || embedded;
   const [formData, setFormData] = useState({
@@ -47,11 +47,11 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     console.log('🔍 AddStaff Debug - User:', user);
     console.log('🔍 AddStaff Debug - CompanyId:', user?.companyId);
     console.log('🔍 AddStaff Debug - CompanyName:', user?.companyName);
-    
+
     if (!user) {
       toast({
         title: 'Error',
@@ -60,7 +60,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
       });
       return;
     }
-    
+
     // Get companyId from companies list if not in user object
     let companyId = user.companyId;
     if (!companyId && user.companyName) {
@@ -70,7 +70,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
       companyId = company?.id;
       console.log('🔍 AddStaff Debug - Found companyId from companies list:', companyId);
     }
-    
+
     if (!companyId) {
       toast({
         title: 'Error',
@@ -148,7 +148,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
   };
 
   if (!user || user.role !== 'plant_admin') {
-    navigate('/admin-login');
+    navigate('/login');
     return null;
   }
 
@@ -338,7 +338,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
 
                 <Alert>
                   <AlertDescription className="text-sm">
-                    <strong>Important:</strong> Please save this password securely. 
+                    <strong>Important:</strong> Please save this password securely.
                     Share it with the staff member through a secure channel. This password will not be shown again.
                   </AlertDescription>
                 </Alert>

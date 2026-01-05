@@ -42,18 +42,18 @@ const PlantAdminDashboard = () => {
     const initializeUser = async () => {
       const currentUser = getCurrentUser();
       if (!currentUser || currentUser.role !== 'plant_admin') {
-        navigate('/admin-login');
+        navigate('/login');
         return;
       }
-      
+
       // Sync user's company ID with backend
       await syncUserCompanyId();
-      
+
       // Get updated user data
       const updatedUser = getCurrentUser();
       setUser(updatedUser);
     };
-    
+
     initializeUser();
   }, [navigate]);
 
@@ -127,7 +127,11 @@ const PlantAdminDashboard = () => {
 
       <main className="w-full">
         <Tabs
-          value={location.pathname.endsWith('/infrastructure') ? 'infrastructure' : 'staff'}
+          value={
+            location.pathname.endsWith('/infrastructure') ? 'infrastructure' :
+              location.pathname.endsWith('/security') ? 'security' :
+                'staff'
+          }
           onValueChange={(v) => navigate(`/plant-admin-dashboard/${v}`)}
           className="w-full"
         >
@@ -150,6 +154,13 @@ const PlantAdminDashboard = () => {
                     <Settings className="h-4 w-4" />
                     <span>Infrastructure</span>
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="security"
+                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span>Security</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -163,11 +174,14 @@ const PlantAdminDashboard = () => {
             <TabsContent value="infrastructure" className="mt-0 space-y-6">
               <Outlet />
             </TabsContent>
+            <TabsContent value="security" className="mt-0 space-y-6">
+              <Outlet />
+            </TabsContent>
           </div>
         </Tabs>
       </main>
 
-      
+
 
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>

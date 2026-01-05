@@ -1,0 +1,11 @@
+[dotenv@17.2.3] injecting env (4) from ..\.env.development -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+Connecting to MongoDB...
+Connected.
+Found 10 users.
+Hashing password for user: superadmin@gmail.com (admin)
+Migration Error: TypeError: next is not a function
+    at model.<anonymous> (E:\plant-main\backend\models\User.js:75:9)
+    at async Kareem.execPre (E:\plant-main\backend\node_modules\kareem\index.js:65:24)
+    at async model.$__save (E:\plant-main\backend\node_modules\mongoose\lib\model.js:369:5)
+    at async model.save (E:\plant-main\backend\node_modules\mongoose\lib\model.js:609:5)
+    at async migratePasswords (E:\plant-main\backend\scripts\migrate-passwords.js:28:9)

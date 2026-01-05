@@ -7,7 +7,7 @@ import { LogOut, Building2, AlertCircle, AlertTriangle, Eye, Zap, Settings, User
 import { getCurrentUser, logout, getCompanies } from '@/lib/auth';
 import { getTablesByCompany, getPanelsByCompany, Panel } from '@/lib/data';
 import { getPlantDetails, getPanelHealthPercentage, getPanelStatus } from '@/lib/realFileSystem';
- 
+
 
 interface UnifiedDashboardProps {
   userRole: 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'user';
@@ -37,15 +37,15 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       navigate('/');
       return;
     }
-    
+
     // For super admin, use provided companyId or current user's companyId
     const targetCompanyId = userRole === 'super_admin' && companyId ? companyId : currentUser.companyId;
-    
+
     if (!targetCompanyId) {
       navigate('/');
       return;
     }
-    
+
     setUser({ ...currentUser, companyId: targetCompanyId });
   }, [navigate, userRole, companyId]);
 
@@ -56,7 +56,12 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       // Get company data from backend
       const { getAllCompanies } = await import('@/lib/realFileSystem');
       const backendCompanies = await getAllCompanies();
-      const selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+      let selectedCompany = backendCompanies.find(c => c.id === user.companyId);
+
+      if (!selectedCompany && user.companyName) {
+        selectedCompany = backendCompanies.find(c => c.name?.toLowerCase() === user.companyName?.toLowerCase());
+      }
+
       setCompany(selectedCompany);
 
       // Load plant details from file system
@@ -65,7 +70,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
     } catch (error) {
       console.error('Error loading plant details:', error);
       setPlantDetails(null);
-      
+
       // Fallback to localStorage
       const companies = getCompanies();
       const selectedCompany = companies.find(c => c.id === user.companyId);
@@ -82,7 +87,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   useEffect(() => {
     if (user?.companyId) {
       loadData();
-      
+
       // Set up auto-refresh
       const interval = setInterval(loadData, 5000);
       return () => clearInterval(interval);
@@ -95,12 +100,12 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   };
 
   // Function to get panel image based on realistic plant data
-  const getPanelImage = (tableId: string, position: 'top' | 'bottom', panelIndex: number): string => {
+  const getPanelImage = (tableId: string, panelIndex: number): string => {
     if (!plantDetails) return '/images/panels/image2.png';
-    
-    const healthPercentage = getPanelHealthPercentage(plantDetails, tableId, position, panelIndex);
-    
-    if (healthPercentage >= 100) {
+
+    const healthPercentage = getPanelHealthPercentage(plantDetails, tableId, undefined, panelIndex);
+
+    if (healthPercentage >= 98) {
       return '/images/panels/image1.png';
     } else if (healthPercentage >= 50) {
       return '/images/panels/image2.png';
@@ -115,7 +120,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       id: string;
       tableId: string;
       tableNumber: string;
-      position: 'top' | 'bottom';
+      position: string;
       panelNumber: string;
       status: string;
     }> = [];
@@ -123,59 +128,34 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
     if (!plantDetails || !plantDetails.tables) return culpritPanels;
 
     plantDetails.tables.forEach((table: any) => {
-      // Check top panels
-      if (table.topPanels && table.topPanels.states) {
-        table.topPanels.states.forEach((state: string, index: number) => {
-          const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, 'top', index);
-          // Only show actually faulty panels (not just affected by series connection)
-          if (state === 'fault' && healthPercentage < 20) {
-            culpritPanels.push({
-              id: `T.${table.serialNumber.split('-')[1]}.TOP.P${index + 1}`,
-              tableId: table.id,
-              tableNumber: table.serialNumber,
-              position: 'top',
-              panelNumber: `P${index + 1}`,
-              status: 'Fault'
-            });
-          } else if (state === 'repairing' && healthPercentage >= 20 && healthPercentage < 80) {
-            culpritPanels.push({
-              id: `T.${table.serialNumber.split('-')[1]}.TOP.P${index + 1}`,
-              tableId: table.id,
-              tableNumber: table.serialNumber,
-              position: 'top',
-              panelNumber: `P${index + 1}`,
-              status: 'Repairing'
-            });
-          }
-        });
-      }
+      const voltages = table.panelVoltages || [];
+      voltages.forEach((voltage: number, index: number) => {
+        const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, undefined, index);
 
-      // Check bottom panels
-      if (table.bottomPanels && table.bottomPanels.states) {
-        table.bottomPanels.states.forEach((state: string, index: number) => {
-          const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, 'bottom', index);
-          // Only show actually faulty panels (not just affected by series connection)
-          if (state === 'fault' && healthPercentage < 20) {
-            culpritPanels.push({
-              id: `T.${table.serialNumber.split('-')[1]}.BOTTOM.P${index + 1}`,
-              tableId: table.id,
-              tableNumber: table.serialNumber,
-              position: 'bottom',
-              panelNumber: `P${index + 1}`,
-              status: 'Fault'
-            });
-          } else if (state === 'repairing' && healthPercentage >= 20 && healthPercentage < 80) {
-            culpritPanels.push({
-              id: `T.${table.serialNumber.split('-')[1]}.BOTTOM.P${index + 1}`,
-              tableId: table.id,
-              tableNumber: table.serialNumber,
-              position: 'bottom',
-              panelNumber: `P${index + 1}`,
-              status: 'Repairing'
-            });
-          }
-        });
-      }
+        // Status Logic matching getPanelStatus from lib
+        // < 50% -> Bad/Fault
+        // 50-98% -> Moderate (Repairing/Warning)
+
+        if (healthPercentage < 50) {
+          culpritPanels.push({
+            id: `${table.node || table.serialNumber}.P${index + 1}`,
+            tableId: table.id,
+            tableNumber: table.node || table.serialNumber,
+            position: 'Main',
+            panelNumber: `P${index + 1}`,
+            status: 'Fault'
+          });
+        } else if (healthPercentage < 98) {
+          culpritPanels.push({
+            id: `${table.node || table.serialNumber}.P${index + 1}`,
+            tableId: table.id,
+            tableNumber: table.node || table.serialNumber,
+            position: 'Main',
+            panelNumber: `P${index + 1}`,
+            status: 'Repairing' // Or Moderate
+          });
+        }
+      });
     });
 
     return culpritPanels;
@@ -219,11 +199,11 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   {user.companyName || 'Solar Plant'} - Solar Plant Monitor
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {userRole === 'super_admin' ? 'Super Admin View' : 
-                   userRole === 'plant_admin' ? 'Plant Admin Dashboard' : 
-                   userRole === 'management' ? 'Management Dashboard' :
-                   userRole === 'technician' ? 'Technician Dashboard' :
-                   'User Dashboard'} - {company.name}
+                  {userRole === 'super_admin' ? 'Super Admin View' :
+                    userRole === 'plant_admin' ? 'Plant Admin Dashboard' :
+                      userRole === 'management' ? 'Management Dashboard' :
+                        userRole === 'technician' ? 'Technician Dashboard' :
+                          'User Dashboard'} - {company.name}
                 </p>
                 {userRole && userRole !== 'super_admin' && userRole !== 'plant_admin' && (
                   <p className="text-xs text-muted-foreground mt-1">
@@ -261,8 +241,8 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Total Panels</p>
                     <p className="text-2xl font-bold">
-                      {plantDetails?.tables?.reduce((sum: number, table: any) => 
-                        sum + table.panelsTop + table.panelsBottom, 0) || 0}
+                      {plantDetails?.tables?.reduce((sum: number, table: any) =>
+                        sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0), 0) || 0}
                     </p>
                   </div>
                   <div className="text-center">
@@ -283,68 +263,52 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
             {plantDetails && plantDetails.tables && plantDetails.tables.length > 0 ? (
               <div className="space-y-6">
                 {plantDetails.tables.map((table: any) => {
+                  const panelVoltages = table.panelVoltages || [];
+                  const totalPower = panelVoltages.reduce((sum: number, v: number) => sum + (v * (plantDetails.currentPerPanel || 0)), 0);
+                  // Approximate power calculation (Voltage * Current)
+
                   return (
-                    <Card key={table.id} className="glass-card">
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5 text-primary" />
-                            {table.serialNumber}
-                          </div>
-                          <Badge variant="outline">
-                            {table.panelsTop + table.panelsBottom} panels ({table.panelsTop} top, {table.panelsBottom} bottom)
+                    <div key={table.id} className="flex items-center gap-4 p-4 bg-white/50 border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+                      {/* Node ID Section */}
+                      <div className="flex-shrink-0 w-32">
+                        <div className="bg-slate-100 text-slate-800 border border-slate-200 shadow-sm rounded-lg px-3 py-2 font-semibold text-lg text-center tracking-tight">
+                          {table.node || table.serialNumber || 'Node'}
+                        </div>
+                        <div className="mt-1 text-center">
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 bg-white/50 border-slate-200">
+                            {totalPower.toFixed(0)}W
                           </Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {/* Top Panels Row */}
-                        <div className="mb-4">
-                          <div className="text-sm font-semibold text-muted-foreground mb-2">
-                            Top Panels - Power: {table.topPanels.power.reduce((sum: number, p: number) => sum + p, 0).toFixed(1)}W
-                          </div>
-                          <div className="flex flex-wrap gap-0.5">
-                            {table.topPanels.power.map((power: number, index: number) => {
-                              const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, 'top', index);
-                              return (
-                                <div key={`top-${index}`} className="relative">
-                                  <img
-                                    src={getPanelImage(table.id, 'top', index)}
-                                    alt={`Panel P${index + 1} - ${power}W (${healthPercentage}%)`}
-                                    className="w-20 h-16 object-contain"
-                                    title={`P${index + 1}: ${power}W (${healthPercentage}%)`}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
                         </div>
+                      </div>
 
-                        {/* Separator Line */}
-                        <div className="border-t border-border/50 my-4"></div>
+                      {/* Panels Scrollable Row */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex gap-2 pb-2 overflow-x-auto custom-scrollbar">
+                          {panelVoltages.map((voltage: number, index: number) => {
+                            const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, undefined, index);
+                            const power = (voltage * (plantDetails.currentPerPanel || 10)).toFixed(1);
 
-                        {/* Bottom Panels Row */}
-                        <div>
-                          <div className="text-sm font-semibold text-muted-foreground mb-2">
-                            Bottom Panels - Power: {table.bottomPanels.power.reduce((sum: number, p: number) => sum + p, 0).toFixed(1)}W
-                          </div>
-                          <div className="flex flex-wrap gap-0.5">
-                            {table.bottomPanels.power.map((power: number, index: number) => {
-                              const healthPercentage = getPanelHealthPercentage(plantDetails, table.id, 'bottom', index);
-                              return (
-                                <div key={`bottom-${index}`} className="relative">
+                            return (
+                              <div key={`p-${index}`} className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform duration-200 hover:-translate-y-1" title={`P${index + 1}: ${power}W (${healthPercentage}%)`}>
+                                <div className="w-8 h-12 border border-slate-200 rounded-md flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-sm">
                                   <img
-                                    src={getPanelImage(table.id, 'bottom', index)}
-                                    alt={`Panel P${index + 1} - ${power}W (${healthPercentage}%)`}
-                                    className="w-20 h-16 object-contain"
-                                    title={`P${index + 1}: ${power}W (${healthPercentage}%)`}
+                                    src={getPanelImage(table.id, index)}
+                                    alt={`Panel P${index + 1}`}
+                                    className="absolute inset-0 w-full h-full object-cover"
                                   />
+                                  <div className="absolute inset-x-0 bottom-0 bg-black/60 py-[1px] flex justify-center backdrop-blur-[1px]">
+                                    <span className="text-[6px] font-bold text-white leading-none tracking-tight">{voltage.toFixed(1)}V</span>
+                                  </div>
                                 </div>
-                              );
-                            })}
-                          </div>
+                              </div>
+                            );
+                          })}
+                          {panelVoltages.length === 0 && (
+                            <div className="text-xs text-muted-foreground italic py-2 pl-2">No panels.</div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -354,7 +318,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Tables Found</h3>
                   <p className="text-muted-foreground">
-                    {userRole === 'user' ? 
+                    {userRole === 'user' ?
                       'No tables have been configured for this plant yet.' :
                       'No tables have been created for this plant yet.'
                     }
@@ -379,15 +343,15 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Total Panels:</span>
                     <Badge variant="outline">
-                      {plantDetails?.tables?.reduce((sum: number, table: any) => 
-                        sum + table.panelsTop + table.panelsBottom, 0) || 0}
+                      {plantDetails?.tables?.reduce((sum: number, table: any) =>
+                        sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0), 0) || 0}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Good Panels:</span>
                     <Badge variant="default" className="bg-green-500 text-green-900">
-                      {(plantDetails?.tables?.reduce((sum: number, table: any) => 
-                        sum + table.panelsTop + table.panelsBottom, 0) || 0) - faultPanels.length - repairingPanels.length}
+                      {(plantDetails?.tables?.reduce((sum: number, table: any) =>
+                        sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0), 0) || 0) - faultPanels.length - repairingPanels.length}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
@@ -448,7 +412,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                             {panel.tableNumber} - {panel.position} - {panel.panelNumber}
                           </p>
                         </div>
-                        <Badge 
+                        <Badge
                           variant={panel.status === 'Fault' ? 'destructive' : 'secondary'}
                           className={panel.status === 'Repairing' ? 'bg-yellow-500 text-yellow-900' : ''}
                         >
@@ -471,24 +435,24 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button 
-                    onClick={() => navigate('/infrastructure')} 
+                  <Button
+                    onClick={() => navigate('/infrastructure')}
                     className="w-full"
                     variant="outline"
                   >
                     <Settings className="h-4 w-4 mr-2" />
                     Infrastructure
                   </Button>
-                  <Button 
-                    onClick={() => navigate('/existing-staff-members')} 
+                  <Button
+                    onClick={() => navigate('/existing-staff-members')}
                     className="w-full"
                     variant="outline"
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Manage Users
                   </Button>
-                  <Button 
-                    onClick={() => navigate('/add-table')} 
+                  <Button
+                    onClick={() => navigate('/add-table')}
                     className="w-full"
                     variant="outline"
                   >
@@ -510,7 +474,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                    {userRole === 'super_admin' ? 
+                    {userRole === 'super_admin' ?
                       'You can monitor all plant data but cannot make changes from this view.' :
                       'You can monitor the solar plant but cannot make any changes. Contact your administrator for modifications.'
                     }
@@ -521,8 +485,8 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
           </div>
         </div>
       </main>
-      
-      
+
+
     </div>
   );
 };

@@ -7,14 +7,17 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, X, Activity } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { updateTableInPlant, updatePlantSettings, getPlantDetails, PlantDetails } from '@/lib/realFileSystem';
-import BackButton from '@/components/ui/BackButton';
 import { useToast } from '@/hooks/use-toast';
 
 interface TableInfo {
   id: string;
   serialNumber: string;
-  panelsTop: number;
-  panelsBottom: number;
+  node?: string; // Support new naming
+  panelCount?: number;
+  panelsTop?: number;
+  panelsBottom?: number;
+  panelsCount?: number; // fallback
+  panelVoltages?: number[];
 }
 
 const EditTable = () => {
@@ -26,8 +29,7 @@ const EditTable = () => {
 
   const [form, setForm] = useState({
     serialNumber: '',
-    panelsTop: '',
-    panelsBottom: '',
+    panelCount: '',
     voltagePerPanel: '',
     currentPerPanel: '',
   });
@@ -35,7 +37,7 @@ const EditTable = () => {
 
   useEffect(() => {
     if (!user || user.role !== 'plant_admin') {
-      navigate('/admin-login');
+      navigate('/login');
       return;
     }
     if (!table) {
@@ -46,19 +48,24 @@ const EditTable = () => {
       try {
         const details = await getPlantDetails(user.companyId);
         setPlant(details);
+
+        // Determine current panel count
+        let count = 0;
+        if (typeof table.panelCount === 'number') count = table.panelCount;
+        else if (table.panelVoltages) count = table.panelVoltages.length;
+        else count = (table.panelsTop || 0) + (table.panelsBottom || 0);
+
         setForm({
-          serialNumber: table.serialNumber || '',
-          panelsTop: String(table.panelsTop ?? 0),
-          panelsBottom: String(table.panelsBottom ?? 0),
+          serialNumber: table.node || table.serialNumber || '',
+          panelCount: String(count),
           voltagePerPanel: String(details?.voltagePerPanel ?? 20),
           currentPerPanel: String(details?.currentPerPanel ?? 10),
         });
       } catch (e) {
         // fallback
         setForm({
-          serialNumber: table.serialNumber || '',
-          panelsTop: String(table.panelsTop ?? 0),
-          panelsBottom: String(table.panelsBottom ?? 0),
+          serialNumber: table.node || table.serialNumber || '',
+          panelCount: '20',
           voltagePerPanel: '20',
           currentPerPanel: '10',
         });
@@ -68,14 +75,19 @@ const EditTable = () => {
 
   const hasChanges = () => {
     if (!table) return false;
-    const top = parseInt(form.panelsTop);
-    const bottom = parseInt(form.panelsBottom);
+    const count = parseInt(form.panelCount);
     const v = parseFloat(form.voltagePerPanel);
     const c = parseFloat(form.currentPerPanel);
+
+    // Check if count matches previous
+    let prevCount = 0;
+    if (typeof table.panelCount === 'number') prevCount = table.panelCount;
+    else if (table.panelVoltages) prevCount = table.panelVoltages.length;
+    else prevCount = (table.panelsTop || 0) + (table.panelsBottom || 0);
+
     return (
-      form.serialNumber !== (table.serialNumber || '') ||
-      top !== (table.panelsTop ?? 0) ||
-      bottom !== (table.panelsBottom ?? 0) ||
+      form.serialNumber !== (table.node || table.serialNumber || '') ||
+      count !== prevCount ||
       (plant && (v !== plant.voltagePerPanel || c !== plant.currentPerPanel))
     );
   };
@@ -84,13 +96,12 @@ const EditTable = () => {
     e.preventDefault();
     if (!user?.companyId || !table) return;
 
-    const top = parseInt(form.panelsTop);
-    const bottom = parseInt(form.panelsBottom);
+    const count = parseInt(form.panelCount);
     const v = parseFloat(form.voltagePerPanel);
     const c = parseFloat(form.currentPerPanel);
 
-    if (isNaN(top) || isNaN(bottom) || top < 0 || bottom < 0 || top > 20 || bottom > 20) {
-      toast({ title: 'Invalid input', description: 'Panels per row must be between 0 and 20', variant: 'destructive' });
+    if (isNaN(count) || count < 0 || count > 20) {
+      toast({ title: 'Invalid input', description: 'Panels must be between 0 and 20', variant: 'destructive' });
       return;
     }
     if (isNaN(v) || isNaN(c) || v <= 0 || c <= 0) {
@@ -103,23 +114,21 @@ const EditTable = () => {
       if (plant && (v !== plant.voltagePerPanel || c !== plant.currentPerPanel)) {
         await updatePlantSettings(user.companyId, v, c);
       }
-      await updateTableInPlant(user.companyId, table.id, top, bottom, form.serialNumber.trim());
-      toast({ title: 'Saved', description: `${table.serialNumber} updated` });
+      await updateTableInPlant(user.companyId, table.id, count, form.serialNumber.trim());
+      toast({ title: 'Saved', description: `${form.serialNumber} updated with ${count} panels` });
       navigate('/plant-admin-dashboard/infrastructure');
     } catch (err) {
-      console.error('Failed to update table', err);
-      toast({ title: 'Error', description: 'Failed to update table', variant: 'destructive' });
+      console.error('Failed to update node', err);
+      toast({ title: 'Error', description: 'Failed to update node', variant: 'destructive' });
     }
   };
 
   if (!table) return null;
 
-  const top = parseInt(form.panelsTop || '0') || 0;
-  const bottom = parseInt(form.panelsBottom || '0') || 0;
-  const totalPanels = top + bottom;
+  const count = parseInt(form.panelCount || '0') || 0;
   const v = parseFloat(form.voltagePerPanel || '0') || 0;
   const c = parseFloat(form.currentPerPanel || '0') || 0;
-  const maxPower = v * c * totalPanels;
+  const maxPower = v * c * count;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
@@ -133,29 +142,26 @@ const EditTable = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Infrastructure
           </Button>
-          <h1 className="text-2xl font-bold text-primary">Edit {table.serialNumber}</h1>
+          <h1 className="text-2xl font-bold text-primary">Edit {table.node || table.serialNumber || 'Node'}</h1>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Update Table Details</CardTitle>
+            <CardTitle>Update Node Details</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="serialNumber">Table No</Label>
+                <Label htmlFor="serialNumber">Node ID</Label>
                 <Input id="serialNumber" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="panelsTop">Top Row Panels (0-20)</Label>
-                <Input id="panelsTop" value={form.panelsTop} onChange={(e) => setForm({ ...form, panelsTop: e.target.value })} />
+                <Label htmlFor="panelCount">Number of Panels (0-20)</Label>
+                <Input type="number" min="0" max="20" id="panelCount" value={form.panelCount} onChange={(e) => setForm({ ...form, panelCount: e.target.value })} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="panelsBottom">Bottom Row Panels (0-20)</Label>
-                <Input id="panelsBottom" value={form.panelsBottom} onChange={(e) => setForm({ ...form, panelsBottom: e.target.value })} />
-              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
@@ -179,7 +185,7 @@ const EditTable = () => {
                   </div>
                   <div>
                     <div className="text-muted-foreground">Total Panels</div>
-                    <div className="font-medium">{isFinite(totalPanels) ? totalPanels : '—'}</div>
+                    <div className="font-medium">{isFinite(count) ? count : '—'}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Per Panel Power</div>

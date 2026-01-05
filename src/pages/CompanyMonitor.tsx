@@ -28,8 +28,13 @@ const CompanyMonitor = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'super_admin') {
-      navigate('/admin-login');
+    const isSuperAdmin = user && (
+      user.role === 'super_admin' ||
+      (user.role === 'admin' && user.email === 'superadmin@gmail.com')
+    );
+
+    if (!user || !isSuperAdmin) {
+      navigate('/login');
       return;
     }
 
@@ -39,7 +44,7 @@ const CompanyMonitor = () => {
     }
 
     loadData();
-    
+
     // Auto-refresh data every 5 seconds
     const interval = setInterval(() => {
       loadData();
@@ -91,11 +96,13 @@ const CompanyMonitor = () => {
       // Get tables and panels from backend
       const { getPlantDetails } = await import('@/lib/realFileSystem');
       const plantDetails = await getPlantDetails(companyId);
-      
+
       if (plantDetails) {
         setTables(plantDetails.tables || []);
         // Calculate total panels from tables
-        const totalPanels = plantDetails.tables.reduce((sum, table) => sum + table.panelsTop + table.panelsBottom, 0);
+        const totalPanels = plantDetails.tables.reduce((sum: number, table: any) => {
+          return sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0);
+        }, 0);
         setPanels([]); // We don't need individual panel data for this view
       } else {
         setTables([]);
@@ -106,7 +113,7 @@ const CompanyMonitor = () => {
       await loadUserDetails();
     } catch (error) {
       console.error('Error loading company data:', error);
-      
+
       // Fallback to localStorage
       const companies = getCompanies();
       const selectedCompany = companies.find(c => c.id === companyId);
@@ -164,17 +171,10 @@ const CompanyMonitor = () => {
     setIsDeleting(true);
     try {
       // Verify password with backend
-      const response = await fetch('http://localhost:5000/api/verify-super-admin-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password }),
-      });
+      const { verifySuperAdminPassword } = await import('@/lib/realFileSystem');
+      const isValid = await verifySuperAdminPassword(password);
 
-      const result = await response.json();
-
-      if (!result.success) {
+      if (!isValid) {
         toast({
           title: "Invalid Password",
           description: "Please enter the correct super admin password.",
@@ -185,16 +185,16 @@ const CompanyMonitor = () => {
 
       // Password verified, proceed with deletion
       const { deleteCompanyFolder } = await import('@/lib/realFileSystem');
-      
+
       // Delete company folder
-      await deleteCompanyFolder(company.id);
-      
+      await deleteCompanyFolder(company.id, password);
+
       toast({
         title: "Company Deleted",
         description: `Company "${company.name}" has been successfully deleted.`,
         variant: "default",
       });
-      
+
       // Navigate back to dashboard
       navigate('/super-admin-dashboard');
     } catch (error) {
