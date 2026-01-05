@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+env/
+.env
+
+# Flask / Web
+instance/
+.pytest_cache/
+coverage/
