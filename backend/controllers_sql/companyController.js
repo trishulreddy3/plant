@@ -25,7 +25,9 @@ exports.createCompany = async (req, res) => {
             plantPowerKW,
             adminEmail,
             adminPassword,
-            adminName
+            adminName,
+            dataSource,
+            externalDeviceId
         } = req.body;
 
         console.log(`[CreateCompany] Attempt for: ${companyName}`);
@@ -48,7 +50,9 @@ exports.createCompany = async (req, res) => {
             companyName,
             voltagePerPanel,
             currentPerPanel,
-            plantPowerKW
+            plantPowerKW,
+            dataSource: dataSource || 'standard',
+            externalDeviceId
         });
 
         // 3. Create Admin User (Global Registry)
@@ -120,6 +124,81 @@ exports.getCompanyById = async (req, res) => {
 
         if (!company) {
             return res.status(404).json({ error: 'Company not found' });
+        }
+
+        // --- ThingsBoard Logic ---
+        if (company.dataSource === 'thingsboard' && company.externalDeviceId) {
+            const { thingsboardSequelize } = require('../db/thingsboard');
+            const { QueryTypes } = require('sequelize');
+
+            // Fetch latest fault data from TB
+            const tbQuery = `
+                SELECT
+                    ts.ts AS timestamp_ms,
+                    kd.key AS key_name,
+                    ts.str_v AS value
+                FROM ts_kv ts
+                JOIN device d ON ts.entity_id = d.id
+                JOIN key_dictionary kd ON ts.key = kd.key_id
+                WHERE d.id = :deviceId::uuid
+                  AND kd.key LIKE 'fault_n%'
+                  AND ts.ts = (
+                      SELECT MAX(ts2.ts)
+                      FROM ts_kv ts2
+                      WHERE ts2.entity_id = d.id
+                  )
+                ORDER BY kd.key;
+            `;
+
+            const tbResults = await thingsboardSequelize.query(tbQuery, {
+                replacements: { deviceId: company.externalDeviceId },
+                type: QueryTypes.SELECT
+            });
+
+            const liveData = tbResults.map(row => {
+                const nodeData = JSON.parse(row.value || '{}');
+                const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+                const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+                const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+                const panelVoltages = [];
+                const panelStatuses = [];
+                const panelCurrents = [];
+
+                for (let i = 1; i <= 20; i++) {
+                    const p = nodeData[`p${i}`];
+                    // Status mapping
+                    const s = p ? p.s : -1;
+                    let status = 'good';
+                    if (s === 2) status = 'bad';
+                    else if (s === 1 || s === -1) status = 'moderate';
+
+                    panelStatuses.push(status);
+                    // Use nominals for TB since we only have status
+                    panelVoltages.push(status === 'good' ? company.voltagePerPanel : status === 'bad' ? 0 : (company.voltagePerPanel * 0.7));
+                    panelCurrents.push(status === 'good' ? company.currentPerPanel : status === 'bad' ? 0 : (company.currentPerPanel * 0.7));
+                }
+
+                return {
+                    node: nodeName,
+                    id: nodeName,
+                    serialNumber: nodeName,
+                    panelVoltages,
+                    panelStatuses,
+                    panelCurrents,
+                    voltagePerPanel: company.voltagePerPanel,
+                    currentPerPanel: company.currentPerPanel,
+                    current: company.currentPerPanel, // Placeholder
+                    time: new Date(parseInt(row.timestamp_ms)).toISOString(),
+                    updatedAt: new Date(parseInt(row.timestamp_ms)).toISOString(),
+                    panelCount: 20
+                };
+            });
+
+            const companyJson = company.toJSON();
+            companyJson.live_data = liveData;
+            companyJson.tables = liveData;
+            return res.json(companyJson);
         }
 
         // Fetch Live Data from DEDICATED table in SCHEMA

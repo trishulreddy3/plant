@@ -6,6 +6,7 @@ console.log('[Server] Environment variables loaded from .env');
 const express = require('express');
 const cors = require('cors');
 const { connectDB, sequelize, Company, User, LiveData, Ticket, LoginLog } = require('./models_sql/index');
+const { connectThingsBoardDB } = require('./db/thingsboard');
 const { protect, authorize, checkCompanyAccess } = require('./middleware/auth_sql');
 const { Sequelize, DataTypes, Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
@@ -32,7 +33,6 @@ app.use('/api/', generalLimiter);
 app.use('/api/', apiLimiter);
 
 // Connect to Database
-// Connect to Database
 connectDB().then(() => {
   // Sync models in development
   sequelize.sync({ alter: true }).then(async () => {
@@ -40,8 +40,14 @@ connectDB().then(() => {
     // Seed Super Admin
     const seedSuperAdmin = require('./seedSuperAdmin');
     await seedSuperAdmin();
+    // Seed TB Test Company
+    const seedTB = require('./seedThingsBoard');
+    await seedTB();
   });
 });
+
+// Connect to ThingsBoard Database
+connectThingsBoardDB();
 
 // Import new controllers
 const authController = require('./controllers_sql/authController');
@@ -59,6 +65,12 @@ app.get('/api/companies/:id', protect, checkCompanyAccess, companyController.get
 app.delete('/api/companies/:companyId', protect, authorize('super_admin'), companyController.deleteCompany);
 app.get('/api/companies/:companyId/session-status', protect, authorize('super_admin', 'admin', 'plant_admin'), checkCompanyAccess, companyController.checkSessionStatus);
 app.put('/api/companies/:companyId/plant', protect, authorize('super_admin', 'admin', 'plant_admin'), checkCompanyAccess, companyController.updatePlantSettings);
+
+// --- ThingsBoard Routes ---
+const thingsboardController = require('./controllers_sql/thingsboardController');
+app.get('/api/thingsboard/:deviceId/faults/latest', protect, thingsboardController.getLatestFaults);
+app.get('/api/thingsboard/:deviceId/faults/historical', protect, thingsboardController.getHistoricalFaults);
+app.get('/api/thingsboard/:deviceId/faults/all', protect, thingsboardController.getAllFaults);
 
 app.get('/api/companies/:companyId/admin', async (req, res) => {
   const admin = await User.findOne({ where: { companyId: req.params.companyId, role: 'admin' } });
@@ -432,6 +444,73 @@ app.get('/api/companies/:companyId/live-data', async (req, res) => {
     const company = await Company.findByPk(companyId);
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
+    // --- ThingsBoard Data Source ---
+    if (company.dataSource === 'thingsboard' && company.externalDeviceId) {
+      const { thingsboardSequelize } = require('./db/thingsboard');
+      const query = `
+            SELECT
+                ts.ts AS timestamp_ms,
+                kd.key AS key_name,
+                ts.str_v AS value
+            FROM ts_kv ts
+            JOIN device d ON ts.entity_id = d.id
+            JOIN key_dictionary kd ON ts.key = kd.key_id
+            WHERE d.id = :deviceId::uuid
+              AND kd.key LIKE 'fault_n%'
+              AND ts.ts = (
+                  SELECT MAX(ts2.ts)
+                  FROM ts_kv ts2
+                  WHERE ts2.entity_id = d.id
+              )
+            ORDER BY kd.key;
+        `;
+
+      const results = await thingsboardSequelize.query(query, {
+        replacements: { deviceId: company.externalDeviceId },
+        type: Sequelize.QueryTypes.SELECT
+      });
+
+      const mapped = results.map(row => {
+        const nodeData = JSON.parse(row.value || '{}');
+        const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+        const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+        const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+        const panelVoltages = [];
+        const panelStatuses = [];
+        const panelCurrents = [];
+
+        for (let i = 1; i <= 20; i++) {
+          const p = nodeData[`p${i}`];
+          const s = p ? p.s : -1;
+          let status = 'good';
+          if (s === 2) status = 'bad';
+          else if (s === 1 || s === -1) status = 'moderate';
+
+          panelStatuses.push(status);
+          panelVoltages.push(status === 'good' ? company.voltagePerPanel : status === 'bad' ? 0 : (company.voltagePerPanel * 0.7));
+          panelCurrents.push(status === 'good' ? company.currentPerPanel : status === 'bad' ? 0 : (company.currentPerPanel * 0.7));
+        }
+
+        return {
+          node: nodeName,
+          id: nodeName,
+          serialNumber: nodeName,
+          panelVoltages,
+          panelStatuses,
+          panelCurrents,
+          voltagePerPanel: company.voltagePerPanel,
+          currentPerPanel: company.currentPerPanel,
+          current: company.currentPerPanel,
+          panelCount: 20,
+          updatedAt: new Date(parseInt(row.timestamp_ms))
+        };
+      });
+
+      return res.json(mapped);
+    }
+
+    // --- Standard SQL/Tenant Data Source ---
     const { initializeTenantSchema } = require('./utils/dynamicModel');
     const models = await initializeTenantSchema(company.companyName);
     const records = await models.LiveData.findAll({ order: [['node', 'ASC']] });
@@ -973,13 +1052,65 @@ app.put('/api/companies/:companyId/resolve-panel', async (req, res) => {
 });
 
 
-// Node Fault Status (Snapshot) - Reads from Tenant fault_tables
+// Node Fault Status (Snapshot) - Reads from Tenant fault_tables or ThingsBoard
 app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
   try {
     const { companyId } = req.params;
     const company = await Company.findByPk(companyId);
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
+    // --- ThingsBoard Data Source ---
+    if (company.dataSource === 'thingsboard' && company.externalDeviceId) {
+      const { thingsboardSequelize } = require('./db/thingsboard');
+      const query = `
+            SELECT
+                ts.ts AS timestamp_ms,
+                kd.key AS key_name,
+                ts.str_v AS value
+            FROM ts_kv ts
+            JOIN device d ON ts.entity_id = d.id
+            JOIN key_dictionary kd ON ts.key = kd.key_id
+            WHERE d.id = :deviceId::uuid
+              AND kd.key LIKE 'fault_n%'
+              AND ts.ts = (
+                  SELECT MAX(ts2.ts)
+                  FROM ts_kv ts2
+                  WHERE ts2.entity_id = d.id
+              )
+            ORDER BY kd.key;
+        `;
+
+      const results = await thingsboardSequelize.query(query, {
+        replacements: { deviceId: company.externalDeviceId },
+        type: Sequelize.QueryTypes.SELECT
+      });
+
+      const snapshot = results.map(row => {
+        const nodeData = JSON.parse(row.value || '{}');
+        const status = {};
+        // Map p1-p20 to P1-P20
+        for (let i = 1; i <= 20; i++) {
+          const p = nodeData[`p${i}`];
+          const s = p ? p.s : -1;
+          status[`P${i}`] = s === 0 ? 'good' : s === 2 ? 'bad' : 'moderate';
+        }
+
+        // Extract node number from 'fault_n1' -> 'Node-001'
+        const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+        const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+        const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+        return {
+          node: nodeName,
+          timestamp: new Date(parseInt(row.timestamp_ms)),
+          ...status
+        };
+      });
+
+      return res.json(snapshot);
+    }
+
+    // --- Standard SQL/Tenant Data Source ---
     const { initializeTenantSchema } = require('./utils/dynamicModel');
     const models = await initializeTenantSchema(company.companyName);
 

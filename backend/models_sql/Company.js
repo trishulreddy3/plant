@@ -27,6 +27,14 @@ const Company = sequelize.define('Company', {
     plantDetails: {
         type: DataTypes.JSONB,
         defaultValue: {}
+    },
+    dataSource: {
+        type: DataTypes.STRING,
+        defaultValue: 'standard' // 'standard' or 'thingsboard'
+    },
+    externalDeviceId: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
     tableName: 'companies',
