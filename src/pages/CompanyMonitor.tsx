@@ -11,6 +11,8 @@ import { getCurrentUser, getCompanies } from '@/lib/auth';
 import { getActivityLogsByCompany, getTablesByCompany, getPanelsByCompany, type ActivityLog } from '@/lib/data';
 import BackButton from '@/components/ui/BackButton';
 import GradientHeading from '@/components/ui/GradientHeading';
+import { EditCompanyDialog } from '@/components/ui/EditCompanyDialog';
+import { getApiBaseUrl } from '@/lib/realFileSystem';
 
 const CompanyMonitor = () => {
   const navigate = useNavigate();
@@ -58,13 +60,13 @@ const CompanyMonitor = () => {
 
     try {
       // Get admin details
-      const response = await fetch(`http://localhost:5000/api/companies/${companyId}/admin`);
+      const response = await fetch(`${getApiBaseUrl()}/companies/${companyId}/admin`);
       if (response.ok) {
         const adminData = await response.json();
         setAdminDetails(adminData);
 
         // Get technicians only and filter out the admin
-        const techResp = await fetch(`http://localhost:5000/api/companies/${companyId}/technicians`);
+        const techResp = await fetch(`${getApiBaseUrl()}/companies/${companyId}/technicians`);
         if (techResp.ok) {
           const technicians = await techResp.json();
           const filteredUsers = (Array.isArray(technicians) ? technicians : []).filter(
@@ -82,45 +84,65 @@ const CompanyMonitor = () => {
     if (!companyId) return;
 
     try {
-      // Get company data from backend
-      const { getAllCompanies } = await import('@/lib/realFileSystem');
-      const backendCompanies = await getAllCompanies();
-      const selectedCompany = backendCompanies.find(c => c.id === companyId);
-      setCompany(selectedCompany);
-
-      // Get activity logs (temporarily disabled to avoid deprecation warnings)
-      // const logs = getActivityLogsByCompany(companyId);
-      // setActivityLogs(logs);
-      setActivityLogs([]); // Empty for now
-
-      // Get tables and panels from backend
+      // 1. Fetch Company Details Directly (Single Source of Truth)
       const { getPlantDetails } = await import('@/lib/realFileSystem');
       const plantDetails = await getPlantDetails(companyId);
 
       if (plantDetails) {
-        setTables(plantDetails.tables || []);
-        // Calculate total panels from tables
-        const totalPanels = plantDetails.tables.reduce((sum: number, table: any) => {
-          return sum + (table.panelCount || table.panelVoltages?.length || (table.panelsTop || 0) + (table.panelsBottom || 0) || 0);
+        // Map response to company state
+        setCompany({
+          id: (plantDetails as any).id || (plantDetails as any).companyId || companyId,
+          name: (plantDetails as any).name || plantDetails.companyName,
+          plantPowerKW: plantDetails.plantPowerKW,
+          panelVoltage: plantDetails.voltagePerPanel,
+          panelCurrent: plantDetails.currentPerPanel,
+          // Add any other necessary fields
+        });
+
+        // structure tables/live_data
+        setTables(plantDetails.tables || plantDetails.live_data || []);
+
+        // Calculate totals
+        const totalPanels = (plantDetails.tables || plantDetails.live_data || []).reduce((sum: number, table: any) => {
+          return sum + (table.panelCount || (table.panelVoltages?.length) || 0);
         }, 0);
-        setPanels([]); // We don't need individual panel data for this view
+
+        // Panels state is just a count in this view or flattened list? 
+        // Existing code set it to [], we'll keep that or map it if needed.
+        // But dashboard logic used length of panels array. 
+        // We'll create a dummy array of length totalPanels to satisfy the UI count check: {panels.length}
+        setPanels(new Array(totalPanels).fill({}));
       } else {
-        setTables([]);
-        setPanels([]);
+        // Fallback: Try to find in the bulk list if direct fetch failed (e.g. backend issue)
+        // This handles cases where getAllCompanies works but getCompanyById (getPlantDetails) fails? Unlikely but safe.
+        const { getAllCompanies } = await import('@/lib/realFileSystem');
+        const backendCompanies = await getAllCompanies();
+        // Loose comparison (==) to handle string vs number ID mismatch
+        const selectedCompany = backendCompanies.find(c => c.id == companyId || c.id === companyId);
+
+        if (selectedCompany) {
+          setCompany(selectedCompany);
+        } else {
+          // Fallback to localStorage if totally failed
+          const companies = getCompanies();
+          const localComp = companies.find(c => c.id === companyId);
+          setCompany(localComp);
+        }
       }
 
-      // Load user details
+      // 2. Activity Logs
+      // setActivityLogs([]); // temporarily disabled logs fetch to focus on Data loading
+
+      // 3. User Details
       await loadUserDetails();
+
     } catch (error) {
       console.error('Error loading company data:', error);
 
-      // Fallback to localStorage
+      // Ultimate Fallback
       const companies = getCompanies();
       const selectedCompany = companies.find(c => c.id === companyId);
       setCompany(selectedCompany);
-
-      const logs = getActivityLogsByCompany(companyId);
-      setActivityLogs(logs);
 
       const companyTables = getTablesByCompany(companyId);
       setTables(companyTables);
@@ -383,6 +405,12 @@ const CompanyMonitor = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
+
+                    <EditCompanyDialog
+                      company={company}
+                      onUpdate={() => loadData()} // Reload after update
+                    />
+
                     <Button
                       onClick={handleDeleteCompany}
                       variant="destructive"

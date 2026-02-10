@@ -66,7 +66,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
     if (!companyId && user.companyName) {
       const { getAllCompanies } = await import('@/lib/realFileSystem');
       const companies = await getAllCompanies();
-      const company = companies.find(c => c.name === user.companyName);
+      const company = companies.find(c => (c.name || '').trim().toLowerCase() === (user.companyName || '').trim().toLowerCase());
       companyId = company?.id;
       console.log('🔍 AddStaff Debug - Found companyId from companies list:', companyId);
     }
@@ -195,7 +195,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
                     placeholder="Enter company name"
                     autoComplete="organization"
                     required
-                    className="h-12"
+                    className="h-12 field-light-blue"
                   />
                 </div>
 
@@ -206,7 +206,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
                     name="role"
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as 'management' | 'admin' | 'technician' })}
-                    className="w-full h-12 px-3 py-2 rounded-md bg-background border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full h-12 px-3 py-2 rounded-md bg-blue-50/50 border border-blue-100 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white"
                     required
                   >
                     <option value="management">Management</option>
@@ -226,7 +226,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
                     placeholder="Enter staff full name"
                     autoComplete="name"
                     required
-                    className="h-12"
+                    className="h-12 field-light-blue"
                   />
                 </div>
 
@@ -241,14 +241,14 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
                     placeholder="staff@example.com"
                     autoComplete="email"
                     required
-                    className="h-12"
+                    className="h-12 field-light-blue"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="phoneNumber">Phone Number</Label>
                   <div className="flex">
-                    <span className="inline-flex items-center px-3 rounded-l-md border border-input bg-muted text-sm whitespace-nowrap select-none">+91</span>
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-blue-100 bg-blue-100/50 text-blue-700 text-sm whitespace-nowrap select-none font-semibold">+91</span>
                     <Input
                       id="phoneNumber"
                       name="phoneNumber"
@@ -261,7 +261,7 @@ const AddStaff = ({ embedded = false, onBack }: { embedded?: boolean; onBack?: (
                       placeholder="XXXXXXXXXX"
                       autoComplete="tel"
                       required
-                      className="h-12 rounded-l-none"
+                      className="h-12 rounded-l-none field-light-blue"
                     />
                   </div>
                 </div>

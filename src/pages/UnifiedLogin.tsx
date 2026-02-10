@@ -5,13 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, LogIn, Eye, EyeOff, Shield, User } from 'lucide-react';
+import { ArrowLeft, LogIn, Eye, EyeOff, Shield, User, AlertTriangle, Mail } from 'lucide-react';
 import { login, getStoredCredentials, storeCredentials } from '@/lib/auth';
 import { getAllCompanies } from '@/lib/realFileSystem';
 import { useToast } from '@/hooks/use-toast';
 import logo from '@/images/logo.png';
 import BackButton from '@/components/ui/BackButton';
 import GradientHeading from '@/components/ui/GradientHeading';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const UnifiedLogin = () => {
   const navigate = useNavigate();
@@ -26,6 +35,9 @@ const UnifiedLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [serverReady, setServerReady] = useState(false);
   const [checkingServer, setCheckingServer] = useState(true);
+  const [showBlockedDialog, setShowBlockedDialog] = useState(false);
+  const [blockedAdminEmail, setBlockedAdminEmail] = useState('');
+  const [blockedSuperAdminEmail, setBlockedSuperAdminEmail] = useState('');
 
   // Load stored credentials on component mount
   useEffect(() => {
@@ -42,6 +54,20 @@ const UnifiedLogin = () => {
       setRememberMe(true);
     } else {
       console.log('🔐 UnifiedLogin: No stored credentials found');
+    }
+
+    // Check for error messages in URL (e.g., from forced logout)
+    const urlParams = new URLSearchParams(window.location.search);
+    const errorMsg = urlParams.get('error');
+    if (errorMsg) {
+      toast({
+        title: 'Session Ended',
+        description: errorMsg,
+        variant: 'destructive',
+        duration: 10000,
+      });
+      // Clear the URL parameter after showing the toast
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // Listen for forced logout event
@@ -124,6 +150,14 @@ const UnifiedLogin = () => {
         // Handle specific error cases from backend response
         let errorMsg = result.error || 'Invalid credentials';
 
+        // Check for blocked account
+        if (errorMsg.toLowerCase().includes('banned') || errorMsg.toLowerCase().includes('blocked')) {
+          setBlockedAdminEmail(result.adminEmail || '');
+          setBlockedSuperAdminEmail(result.superAdminEmail || 'superadmin@gmail.com');
+          setShowBlockedDialog(true);
+          return;
+        }
+
         // Improve wording for mismatched credentials
         if (errorMsg.toLowerCase().includes('password') || errorMsg.toLowerCase().includes('user not found')) {
           errorMsg = 'Invalid credentials. Please check your email, company, and password.';
@@ -166,10 +200,10 @@ const UnifiedLogin = () => {
           position: relative;
           padding: 8px 20px;
           font-size: 16px;
-          color: rgb(193, 163, 98);
-          border: 2px solid rgb(193, 163, 98);
+          color: #2563eb;
+          border: 2px solid #422dc8ff;
           border-radius: 28px;
-          background-color: transparent;
+          background-color: #dbeafe;
           font-weight: 600;
           transition: all 0.3s cubic-bezier(0.23, 1, 0.320, 1);
           overflow: hidden;
@@ -191,7 +225,7 @@ const UnifiedLogin = () => {
           border-radius: inherit;
           scale: 0;
           z-index: -1;
-          background-color: rgb(193, 163, 98);
+          background-color: #2563eb;
           transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
         }
 
@@ -200,13 +234,24 @@ const UnifiedLogin = () => {
         }
 
         .custom-button:hover {
-          color: #212121;
+          color: #ffffff;
           scale: 1.05;
-          box-shadow: 0 0px 20px rgba(193, 163, 98, 0.4);
+          box-shadow: 0 0px 20px rgba(37, 99, 235, 0.4);
         }
 
         .custom-button:active {
           scale: 1;
+        }
+
+        .input-modern {
+          background-color: #dbeafe !important;
+          border-color: #93c5fd !important;
+          color: #1e3a8a !important;
+        }
+        
+        .input-modern:focus {
+          background-color: #ffffff !important;
+          border-color: #2563eb !important;
         }
       `}</style>
       {(!serverReady || checkingServer) && (
@@ -338,7 +383,7 @@ const UnifiedLogin = () => {
                     className="custom-button"
                   >
                     <LogIn className="h-6 w-6" />
-                    Login
+                    Sign In
                   </button>
                 </div>
                 <div className="flex justify-center">
@@ -351,33 +396,62 @@ const UnifiedLogin = () => {
                   </button>
                 </div>
               </form>
-
-              <div className="mt-8 p-4 bg-green-50 rounded-lg border border-green-200">
-                <h3 className="text-sm sm:text-base font-semibold text-green-800 mb-2">Demo Credentials:</h3>
-                <div className="text-xs sm:text-sm text-green-700 space-y-1 break-words">
-                  <div><strong>Super Admin (role: admin):</strong></div>
-                  <div>Company: microsyslogic</div>
-                  <div>Email: superadmin@gmail.com</div>
-                  <div>Password: superadmin@123</div>
-
-                  <div className="mt-2"><strong>Plant Admin (role: admin):</strong></div>
-                  <div>Company: infosys</div>
-                  <div>Email: infosysadmin@gmail.com</div>
-                  <div>Password: admin@123</div>
-
-                  <div className="mt-2"><strong>Technician (role: technician):</strong></div>
-                  <div>Company: infosys</div>
-                  <div>Email: trishulreddy@gmail.com</div>
-                  <div>Password: FW1k1lFdjw5j</div>
-                  <div>hi</div>
-
-                
-                </div>
-              </div>
             </div>
           </div>
         </div>
       )}
+
+      <AlertDialog open={showBlockedDialog} onOpenChange={setShowBlockedDialog}>
+        <AlertDialogContent className="glass-card border-red-200">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <AlertDialogTitle className="text-xl font-bold text-red-900">Account Blocked</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-base text-gray-700 space-y-4">
+              <p>
+                Your account has been strictly blocked because the maximum number of failed login attempts (3) has been reached.
+              </p>
+              <div className="bg-red-50 p-4 rounded-xl border border-red-100 space-y-3">
+                <p className="font-semibold text-red-800 flex items-center gap-2">
+                  <Shield className="h-4 w-4" /> Please contact your Administrators:
+                </p>
+                <div className="space-y-2">
+                  {blockedAdminEmail && (
+                    <div className="flex flex-col">
+                      <span className="text-xs text-red-600 font-bold uppercase tracking-wider">Company Admin</span>
+                      <a href={`mailto:${blockedAdminEmail}`} className="flex items-center gap-2 text-red-700 hover:text-red-900 transition-colors font-medium">
+                        <Mail className="h-4 w-4" />
+                        {blockedAdminEmail}
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-red-600 font-bold uppercase tracking-wider">Super Admin</span>
+                    <a href={`mailto:${blockedSuperAdminEmail}`} className="flex items-center gap-2 text-red-700 hover:text-red-900 transition-colors font-medium">
+                      <Mail className="h-4 w-4" />
+                      {blockedSuperAdminEmail}
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 italic">
+                Only the Super Admin or Company Admin can unblock your account after verification.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setShowBlockedDialog(false)}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold h-12 px-8 rounded-xl"
+            >
+              OK, I Understand
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

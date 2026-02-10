@@ -194,20 +194,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     console.log('Login attempt:', { email, password, companyName });
 
-    // Check Super Admin (frontend only)
-    if (email === SUPER_ADMIN.email && password === 'superadmin123') {
-      // For super admin, company name should be 'pm' (lowercase)
-      if (companyName && companyName.toLowerCase() !== 'pm') {
-        console.log('Super admin login failed: Invalid company name');
-        return false;
-      }
-      console.log('Super admin login successful');
-      setUser(SUPER_ADMIN);
-      return true;
-    }
+    // Unified Login Flow for All Roles
+    const targetCompany = (companyName || (email.toLowerCase() === 'superadmin@gmail.com' ? 'microsyslogic' : '')).toLowerCase();
 
-    // For plant admins and users, use backend API
-    if (companyName) {
+    if (targetCompany || email.toLowerCase() === 'superadmin@gmail.com') {
       try {
         const { getApiBaseUrl } = await import('@/lib/realFileSystem');
         const API_BASE_URL = getApiBaseUrl();
@@ -219,31 +209,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           body: JSON.stringify({
             email,
             password,
-            companyName: companyName.toLowerCase()
+            companyName: targetCompany || undefined
           }),
         });
 
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            console.log('Backend login successful:', data.user);
+            console.log('Login successful:', data.user);
+            if (data.token) localStorage.setItem('auth_token', data.token);
             setUser(data.user);
             return true;
           }
-        } else {
-          const errorData = await response.json();
-          console.log('Backend login failed:', errorData.error);
         }
-      } catch (error) {
-        console.error('Error calling backend login:', error);
+      } catch (e) {
+        console.error('Login error:', e);
       }
     }
+
+
 
     console.log('Login failed: No matching credentials found');
     return false;
   };
 
   const logout = () => {
+    localStorage.removeItem('auth_token');
     setUser(null);
   };
 

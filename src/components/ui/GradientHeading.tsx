@@ -27,7 +27,7 @@ export default function GradientHeading({
   return (
     <TagComponent
       className={clsx(
-        'font-extrabold tracking-tight bg-gradient-to-r from-red-600 via-orange-500 to-orange-400 bg-clip-text text-transparent',
+        'font-black tracking-tight bg-gradient-to-r from-blue-900 via-blue-700 to-blue-500 bg-clip-text text-transparent drop-shadow-sm',
         sizeMap[size],
         className
       )}

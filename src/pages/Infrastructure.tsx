@@ -145,7 +145,12 @@ const Infrastructure = () => {
   }, [user?.companyId]);
 
   const onRowClick = (table: any) => {
-    setSelectedTable(prev => (prev?.id === table.id ? null : table));
+    // Primary ID is 'node' in the new schema, fallback to 'id' or 'serialNumber'
+    const tableId = table.node || table.id || table.serialNumber;
+    setSelectedTable(prev => {
+      const prevId = prev?.node || prev?.id || prev?.serialNumber;
+      return prevId === tableId ? null : table;
+    });
   };
 
   const goToEditPage = async () => {
@@ -172,11 +177,15 @@ const Infrastructure = () => {
       return;
     }
     try {
-      // Resolve table ID from backend to avoid stale IDs
+      // Resolve table ID/Node from backend to avoid stale data
       const latest = await getPlantDetails(user.companyId);
-      const resolved = latest?.tables?.find((t: any) => t.serialNumber === selectedTable.serialNumber) || selectedTable;
-      await deleteTableFromPlant(user.companyId, resolved.id);
-      toast({ title: 'Deleted', description: `${selectedTable.serialNumber} deleted` });
+      const currentLabel = selectedTable.node || selectedTable.serialNumber;
+
+      const resolved = latest?.tables?.find((t: any) => (t.node || t.serialNumber) === currentLabel) || selectedTable;
+      const targetId = resolved.node || resolved.id || resolved.serialNumber;
+
+      await deleteTableFromPlant(user.companyId, targetId);
+      toast({ title: 'Deleted', description: `${currentLabel} deleted` });
       setShowDeleteStep2(false);
       setShowDeleteStep1(false);
       setSelectedTable(null);
@@ -227,7 +236,7 @@ const Infrastructure = () => {
                 <CardTitle className="text-red-600">Caution: Deleting Table</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm">You are about to permanently delete <span className="font-mono font-semibold">{selectedTable.serialNumber}</span>. This action cannot be undone.</p>
+                <p className="text-sm">You are about to permanently delete <span className="font-mono font-semibold">{selectedTable.node || selectedTable.serialNumber}</span>. This action cannot be undone.</p>
                 <div className="flex gap-3 pt-2">
                   <Button className="flex-1" onClick={() => { setShowDeleteStep1(false); setShowDeleteStep2(true); }}>I Understand, Continue</Button>
                   <Button variant="outline" className="flex-1" onClick={() => setShowDeleteStep1(false)}>
@@ -247,10 +256,10 @@ const Infrastructure = () => {
                 <CardTitle className="text-red-700">Confirm Deletion</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm">Type the Table No to confirm deletion (e.g., <span className="font-mono font-semibold">{selectedTable.serialNumber}</span> or its number only)</p>
-                <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder={`${selectedTable.serialNumber} or ${String(selectedTable.serialNumber || '').replace(/\D+/g, '')}`} className="h-12" />
+                <p className="text-sm">Type the Table No to confirm deletion (e.g., <span className="font-mono font-semibold">{selectedTable.node || selectedTable.serialNumber}</span> or its number only)</p>
+                <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder={`${selectedTable.node || selectedTable.serialNumber} or ${String(selectedTable.node || selectedTable.serialNumber || '').replace(/\D+/g, '')}`} className="h-12" />
                 <div className="flex gap-3 pt-2">
-                  <Button variant="destructive" className="flex-1 h-12" onClick={confirmDelete} disabled={!((deleteConfirm === selectedTable.serialNumber) || (deleteConfirm && deleteConfirm.replace(/\D+/g, '') === String(selectedTable.serialNumber || '').replace(/\D+/g, '')))}>
+                  <Button variant="destructive" className="flex-1 h-12" onClick={confirmDelete} disabled={!((deleteConfirm === (selectedTable.node || selectedTable.serialNumber)) || (deleteConfirm && deleteConfirm.replace(/\D+/g, '') === String(selectedTable.node || selectedTable.serialNumber || '').replace(/\D+/g, '')))}>
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                   </Button>
                   <Button variant="outline" className="flex-1 h-12" onClick={() => setShowDeleteStep2(false)}>
@@ -348,12 +357,12 @@ const Infrastructure = () => {
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
+        {/* Action Buttons styled as tabs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Button
             variant="outline"
             onClick={() => navigate('/add-table')}
-            className="w-full h-16 text-base font-medium rounded-xl px-6 border-2 border-primary text-primary hover:bg-primary/10 hover:border-primary/80 focus-visible:ring-2 focus-visible:ring-primary/40 transition-all duration-200"
+            className="w-full h-16 text-lg font-bold rounded-xl px-6 tab-unselected shadow-sm hover:tab-selected transition-all"
           >
             <Plus className="mr-2 h-5 w-5" />
             Add New Table
@@ -362,7 +371,7 @@ const Infrastructure = () => {
           <Button
             variant="outline"
             onClick={() => navigate('/plant-monitor')}
-            className="w-full h-16 text-base font-medium rounded-xl px-6 border-2 border-primary text-primary hover:bg-primary/10 hover:border-primary/80 focus-visible:ring-2 focus-visible:ring-primary/40 transition-all duration-200"
+            className="w-full h-16 text-lg font-bold rounded-xl px-6 tab-unselected shadow-sm hover:tab-selected transition-all"
           >
             <Eye className="mr-2 h-5 w-5" />
             View Tables & Panels
@@ -375,7 +384,7 @@ const Infrastructure = () => {
             <CardContent className="pt-6">
               <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="font-semibold text-primary text-lg">
-                  Selected: <span className="font-mono">{selectedTable.serialNumber}</span>
+                  Selected: <span className="font-mono">{selectedTable.node || selectedTable.serialNumber}</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <Button onClick={goToEditPage} className="gradient-primary shadow-sm">
@@ -430,22 +439,26 @@ const Infrastructure = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {tables.map((table) => {
+                    {tables.map((table, index) => {
                       const totalPanels = table.panelCount || table.panelVoltages?.length || ((table.panelsTop || 0) + (table.panelsBottom || 0)) || 0;
 
-                      // Get voltage and current from plant details
-                      const voltagePerPanel = plantDetails?.voltagePerPanel || company?.voltagePerPanel || 20;
-                      const currentPerPanel = plantDetails?.currentPerPanel || company?.currentPerPanel || 10;
+                      // Use table-specific voltage/current if available, otherwise company global
+                      const voltagePerPanel = table.voltagePerPanel || plantDetails?.voltagePerPanel || company?.voltagePerPanel || 20;
+                      const currentPerPanel = table.currentPerPanel || plantDetails?.currentPerPanel || company?.currentPerPanel || 10;
                       const maxPowerPerPanel = voltagePerPanel * currentPerPanel;
                       const maxTotalPower = maxPowerPerPanel * totalPanels;
                       const displaySerial = table.node || table.serialNumber;
 
                       return (
                         <tr
-                          key={table.id}
+                          key={table.node || `table-${index}`}
                           onClick={() => onRowClick(table)}
-                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${selectedTable?.id === table.id
-                            ? 'bg-blue-50 hover:bg-blue-100'
+                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${selectedTable && (
+                            (selectedTable.node && selectedTable.node === table.node) ||
+                            (selectedTable.id && selectedTable.id === table.id) ||
+                            (selectedTable.serialNumber && selectedTable.serialNumber === table.serialNumber)
+                          )
+                            ? 'bg-blue-100 hover:bg-blue-200 ring-2 ring-primary/30 ring-inset shadow-inner'
                             : 'hover:bg-gray-50'
                             }`}
                         >

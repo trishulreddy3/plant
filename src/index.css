@@ -109,6 +109,7 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
@@ -122,32 +123,32 @@ All colors MUST be HSL.
   .glass-card {
     @apply backdrop-blur-xl bg-card/80 border border-border/50 shadow-lg;
   }
-  
+
   .glass-header {
     @apply backdrop-blur-xl bg-card/90 border-b border-border/50;
   }
-  
+
   .glass-panel {
     @apply backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl;
     box-shadow: var(--shadow-glass);
   }
-  
+
   .status-good {
     @apply bg-success/10 text-success border-success/20;
   }
-  
+
   .status-average {
     @apply bg-warning/10 text-warning border-warning/20;
   }
-  
+
   .status-fault {
     @apply bg-destructive/10 text-destructive border-destructive/20;
   }
-  
+
   .gradient-primary {
     @apply bg-gradient-to-r from-primary to-primary/80;
   }
-  
+
   .gradient-text {
     @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
     /* Improved text rendering for better clarity */
@@ -155,27 +156,27 @@ All colors MUST be HSL.
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
-  
+
   .gradient-card {
     background: var(--gradient-card);
   }
-  
+
   .glow-effect {
     box-shadow: var(--shadow-glow);
   }
-  
+
   .panel-healthy {
     @apply bg-green-500/20 border-green-500 text-green-400;
   }
-  
+
   .panel-warning {
     @apply bg-orange-500/20 border-orange-500 text-orange-400;
   }
-  
+
   .panel-fault {
     @apply bg-red-500/20 border-red-500 text-red-400;
   }
-  
+
   .panel-repairing {
     @apply bg-blue-500/20 border-blue-500 text-blue-400;
   }
@@ -226,5 +227,18 @@ All colors MUST be HSL.
   .login-card {
     @apply card-modern p-8 w-full max-w-md;
     @apply shadow-2xl shadow-blue-500/10;
+  }
+
+  /* Modern Blue Theme Utilities - Peak Intensity */
+  .tab-unselected {
+    @apply bg-blue-200 text-blue-800 border-blue-400 hover:bg-blue-300 transition-all duration-200 font-bold;
+  }
+
+  .tab-selected {
+    @apply bg-blue-900 text-white border-blue-950 shadow-xl shadow-blue-900/40 transform scale-[1.03] font-extrabold;
+  }
+
+  .field-light-blue {
+    @apply bg-blue-200/95 border-blue-300 focus:bg-white focus:border-blue-600 focus:ring-blue-200 text-blue-950 placeholder:text-blue-500/70 font-medium;
   }
 }

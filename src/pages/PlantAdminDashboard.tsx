@@ -61,8 +61,8 @@ const PlantAdminDashboard = () => {
     setShowLogoutDialog(true);
   };
 
-  const confirmLogout = () => {
-    logout();
+  const confirmLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -128,38 +128,35 @@ const PlantAdminDashboard = () => {
       <main className="w-full">
         <Tabs
           value={
-            location.pathname.endsWith('/infrastructure') ? 'infrastructure' :
-              location.pathname.endsWith('/security') ? 'security' :
-                'staff'
+            location.pathname.endsWith('/infrastructure') ? 'infrastructure' : 'staff'
           }
           onValueChange={(v) => navigate(`/plant-admin-dashboard/${v}`)}
           className="w-full"
         >
-          {/* Tabs Navigation - Fixed positioning to prevent overlap */}
-          <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-14 sm:top-16 z-10 shadow-sm">
+          {/* Tabs Navigation - Sticky wrapper without the extra background container */}
+          <div className="sticky top-14 sm:top-16 z-10">
             <div className="container mx-auto px-4">
-              <div className="flex items-center justify-center py-3">
-                <TabsList className="inline-flex h-11 items-center justify-center rounded-lg bg-muted/60 p-1 shadow-inner border border-gray-200/50 gap-1">
+              <div className="flex items-center justify-center py-4">
+                <TabsList className="flex w-full max-w-4xl h-14 items-center justify-center rounded-xl bg-white/40 backdrop-blur-md p-1.5 shadow-sm border border-gray-200/50 gap-2">
                   <TabsTrigger
                     value="staff"
-                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
+                    className="flex-1 h-11 text-base sm:text-lg font-bold flex items-center justify-center gap-3 rounded-lg transition-all duration-300 
+                      data-[state=inactive]:tab-unselected
+                      data-[state=active]:tab-selected
+                      data-[state=active]:scale-[1.02] data-[state=active]:shadow-md"
                   >
-                    <Users className="h-4 w-4" />
-                    <span>Staff</span>
+                    <Users className="h-5 w-5" />
+                    <span>Staff Management</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="infrastructure"
-                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
+                    className="flex-1 h-11 text-base sm:text-lg font-bold flex items-center justify-center gap-3 rounded-lg transition-all duration-300 
+                      data-[state=inactive]:tab-unselected
+                      data-[state=active]:tab-selected
+                      data-[state=active]:scale-[1.02] data-[state=active]:shadow-md"
                   >
-                    <Settings className="h-4 w-4" />
+                    <Settings className="h-5 w-5" />
                     <span>Infrastructure</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="security"
-                    className="h-10 px-6 text-sm font-medium flex items-center justify-center gap-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:text-muted-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-white/50"
-                  >
-                    <Shield className="h-4 w-4" />
-                    <span>Security</span>
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -172,9 +169,6 @@ const PlantAdminDashboard = () => {
               <Outlet />
             </TabsContent>
             <TabsContent value="infrastructure" className="mt-0 space-y-6">
-              <Outlet />
-            </TabsContent>
-            <TabsContent value="security" className="mt-0 space-y-6">
               <Outlet />
             </TabsContent>
           </div>

@@ -77,7 +77,8 @@ const AddTable = () => {
             const m = sn.match(/(\d+)/);
             if (m) {
               const n = parseInt(m[1], 10);
-              if (!isNaN(n) && n >= maxNum) {
+              // Ignore timestamps (extremely large numbers) in sequence calculation
+              if (!isNaN(n) && n < 10000 && n >= maxNum) {
                 maxNum = n;
               }
             }
@@ -99,6 +100,7 @@ const AddTable = () => {
       }
     };
 
+    setNextTableNumber('Node-001'); // Safe default
     loadPlantDetails();
   }, [user]);
 
@@ -158,7 +160,13 @@ const AddTable = () => {
       }
 
       // Add table to company plant details
-      const plantTableResult = await addTableToPlant(user.companyId, panelCount);
+      const plantTableResult = await addTableToPlant(
+        user.companyId,
+        panelCount,
+        nextTableNumber,
+        voltagePerPanel,
+        currentPerPanel
+      );
 
       const powerPerPanel = voltagePerPanel * currentPerPanel;
 
@@ -296,7 +304,7 @@ const AddTable = () => {
                         validatePanelCount(value);
                       }}
                       placeholder="20"
-                      className={`h-12 ${validationErrors.panelCount ? 'border-red-500 focus:border-red-500' : ''}`}
+                      className={`h-12 field-light-blue ${validationErrors.panelCount ? 'border-red-500 focus:border-red-500' : ''}`}
                     />
                     <p className="text-xs text-muted-foreground">
                       Maximum 20 panels per node
@@ -327,7 +335,7 @@ const AddTable = () => {
                           onChange={(e) => setFormData({ ...formData, voltagePerPanel: e.target.value })}
                           placeholder="20"
                           required
-                          className="h-12"
+                          className="h-12 field-light-blue"
                         />
                         <p className="text-xs text-muted-foreground">
                           Default: {plantDetails?.voltagePerPanel || 20}V
@@ -345,7 +353,7 @@ const AddTable = () => {
                           onChange={(e) => setFormData({ ...formData, currentPerPanel: e.target.value })}
                           placeholder="10"
                           required
-                          className="h-12"
+                          className="h-12 field-light-blue"
                         />
                         <p className="text-xs text-muted-foreground">
                           Default: {plantDetails?.currentPerPanel || 10}A

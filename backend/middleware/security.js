@@ -30,35 +30,38 @@ const securityHeaders = helmet({
 // Rate limiting for different endpoints
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 10000,
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== 'production'
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login attempts per windowMs
+  max: 100,
   message: {
     error: 'Too many login attempts, please try again later.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== 'production'
 });
 
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 60, // limit each IP to 60 requests per minute
+  max: 2000,
   message: {
     error: 'API rate limit exceeded, please slow down.',
     retryAfter: '1 minute'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== 'production'
 });
 
 // Input validation middleware
@@ -68,10 +71,15 @@ const validateLogin = [
     .normalizeEmail()
     .withMessage('Please provide a valid email address'),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    .isLength({ min: 4 })
+    .withMessage('Password must be at least 4 characters long'),
+  body('companyName')
+    .trim()
+    .notEmpty()
+    .withMessage('Company name is required'),
+  body('role')
+    .isIn(['admin', 'technician', 'management', 'plant_admin'])
+    .withMessage('Invalid role'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -154,18 +162,18 @@ const sanitizeInput = (req, res, next) => {
       }
     }
   };
-  
+
   if (req.body) sanitizeObject(req.body);
   if (req.query) sanitizeObject(req.query);
   if (req.params) sanitizeObject(req.params);
-  
+
   next();
 };
 
 // Security logging middleware
 const securityLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const logData = {
@@ -178,15 +186,13 @@ const securityLogger = (req, res, next) => {
       duration: `${duration}ms`,
       contentLength: res.get('Content-Length') || 0
     };
-    
-    // Log security-relevant events
+
+    // Only log security-relevant events (errors) to keep terminal clean
     if (res.statusCode >= 400) {
       console.warn('🚨 Security Event:', JSON.stringify(logData));
-    } else {
-      console.log('📊 Request:', JSON.stringify(logData));
     }
   });
-  
+
   next();
 };
 

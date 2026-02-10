@@ -37,11 +37,12 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 }) => {
   const [nodeFaultStatusData, setNodeFaultStatusData] = useState<any[]>([]);
   const [flatLiveData, setFlatLiveData] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'faults'>('table');
+  const [user, setUser] = useState(getCurrentUser());
+  const isTechnician = (user?.role === 'technician');
+  const [viewMode, setViewMode] = useState<'grid' | 'table' | 'faults'>('grid');
   const LAZY_MODE = false;
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [user, setUser] = useState(getCurrentUser());
   const [tables, setTables] = useState<any[]>([]);
   const [panels, setPanels] = useState<Panel[]>([]);
   const [editingTableId, setEditingTableId] = useState<string | null>(null);
@@ -57,7 +58,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     panelCount: number;
   }>({ tableId: '', position: 'Main', panelCount: 1 });
   const [faultPanelType, setFaultPanelType] = useState<'all' | 'fault' | 'repairing'>('all');
-  const [propagateSeries, setPropagateSeries] = useState<boolean>(true);
+  const [propagateSeries, setPropagateSeries] = useState<boolean>(false);
   const [showMakeFault, setShowMakeFault] = useState(false);
   const [mfTableId, setMfTableId] = useState<string>('');
   const [mfPosition, setMfPosition] = useState<string>('Main');
@@ -75,7 +76,14 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     }
 
     // For super admin, use provided companyId or current user's companyId
-    const targetCompanyId = userRole === 'super_admin' && companyId ? companyId : currentUser.companyId;
+    const targetCompanyId = companyId || currentUser.companyId;
+
+    // --- NEW: Dynamic Nominals for Make Fault Dialog ---
+    const selectedTable = tables.find(t => t.id === mfTableId);
+    if (selectedTable) {
+      setExpectedVoltage(selectedTable.voltagePerPanel || 0);
+      setExpectedCurrent(selectedTable.currentPerPanel || 0);
+    }
 
     if (!targetCompanyId) {
       navigate('/');
@@ -98,7 +106,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
     const interval = setInterval(() => {
       loadData();
-    }, 5000); // 5 seconds
+    }, 2000); // 2 seconds for highly responsive dashboard
 
     return () => clearInterval(interval);
   }, [user, companyId, dataLoaded, refreshTrigger]);
@@ -163,13 +171,17 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
           const tableList = (plantDetails.live_data || []).map((t: any) => ({
             ...t,
             id: t.id || t.node || t.serialNumber || `tbl-${Math.random()}`
-          }));
+          })).sort((a: any, b: any) => {
+            const nodeA = String(a.node || a.serialNumber || '');
+            const nodeB = String(b.node || b.serialNumber || '');
+            return nodeA.localeCompare(nodeB, undefined, { numeric: true, sensitivity: 'base' });
+          });
           setTables(tableList);
+
+          // Pre-select table for Make Fault if not already set
           if (!mfTableId && tableList.length > 0) {
             setMfTableId(tableList[0].id);
           }
-          setExpectedCurrent(plantDetails.currentPerPanel || 0);
-          setExpectedVoltage(plantDetails.voltagePerPanel || 0);
 
           // Fetch Node Fault Status for the table view
           try {
@@ -191,31 +203,27 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             console.error('Failed to load flat live data', err);
           }
 
-          // Generate panels from plant details (New Flat Schema)
+          // Generate panels from plant details (Database-Driven State)
           const generatedPanels: Panel[] = [];
 
           (plantDetails.live_data || []).forEach((table: any) => {
             const vs = table.panelVoltages || [];
-            const vpp = plantDetails.voltagePerPanel || 20;
-            vs.forEach((vol: number, i: number) => {
-              const voltageHealth = (vol / vpp) * 100;
-              let status: 'good' | 'moderate' | 'bad' = 'good';
-              if (voltageHealth < 50) status = 'bad';
-              else if (voltageHealth < 98) status = 'moderate'; // 98% because variation is small
+            const cs = table.panelCurrents || [];
+            const ss = table.panelStatuses || [];
 
+            vs.forEach((vol: number, i: number) => {
               generatedPanels.push({
                 id: `${table.serialNumber || table.node}-P${i + 1}`,
                 tableId: table.id || table.node || table.serialNumber,
                 companyId: user.companyId,
                 name: `P${i + 1}`,
-                // Unified position
                 position: 'Main',
-                maxVoltage: 40,
-                maxCurrent: 10,
+                maxVoltage: table.voltagePerPanel || plantDetails.voltagePerPanel || 40,
+                maxCurrent: table.currentPerPanel || plantDetails.currentPerPanel || 10,
                 currentVoltage: vol,
-                currentCurrent: table.current || 0, // Table-wide limiting current
-                powerGenerated: vol * (table.current || 0),
-                status: status,
+                currentCurrent: table.current !== undefined ? table.current : (cs[i] || 0),
+                powerGenerated: vol * (table.current !== undefined ? table.current : (cs[i] || 0)),
+                status: ss[i] || 'good',
                 lastUpdated: table.time || new Date().toISOString()
               });
             });
@@ -240,8 +248,8 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     setShowLogoutDialog(true);
   };
 
-  const confirmLogout = () => {
-    logout();
+  const confirmLogout = async () => {
+    await logout();
     navigate('/');
   };
 
@@ -316,15 +324,22 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     if (editingTableId === tableId) {
       setPanelToDelete(panel);
       setShowDeleteDialog(true);
-    } else if (isTechnician || userRole === 'plant_admin') {
-      // For technicians or admins, clicking a panel pre-fills and opens the Make Fault dialog
+      return;
+    }
+
+    // For Technicians: Update Make Fault defaults and open dialog
+    if (isTechnician) {
       setMfTableId(tableId);
-      setMfPosition(panel.position);
-      // Extra logic to find the index: we'll match by panel name "P1", "P2" etc
-      const idx = parseInt(panel.name.substring(1)) - 1;
-      setMfPanelIndex(isNaN(idx) ? 0 : idx);
-      setMfCurrent('');
-      setMfVoltage('');
+      // Extracts index from p.id or p.name (e.g., "P1" -> 0)
+      const index = parseInt(panel.name.replace('P', ''), 10) - 1;
+      if (!isNaN(index)) {
+        setMfPanelIndex(index);
+      }
+
+      // Pre-fill with existing values
+      setMfCurrent(panel.currentCurrent.toString());
+      setMfVoltage(panel.currentVoltage.toString());
+
       setShowMakeFault(true);
     }
   };
@@ -422,7 +437,33 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
   // Series summary
   const seriesSummary = { culprits: 0, affected: 0 };
-  const priorityToFix = null;
+  const priorityToFix = (() => {
+    if (faultPanels.length > 0) {
+      // Find table with most bad panels
+      const tableData: Record<string, string[]> = {};
+      faultPanels.forEach(p => {
+        if (!tableData[p.tableId]) tableData[p.tableId] = [];
+        tableData[p.tableId].push(p.name);
+      });
+      // Sort by count descending
+      const topEntry = Object.entries(tableData).sort((a, b) => b[1].length - a[1].length)[0];
+      const tableId = topEntry[0];
+      const panelList = topEntry[1].join(', ');
+      return { label: `CRITICAL: Fix ${tableId} (${panelList}) immediately` };
+    }
+    if (repairingPanels.length > 0) {
+      const tableData: Record<string, string[]> = {};
+      repairingPanels.forEach(p => {
+        if (!tableData[p.tableId]) tableData[p.tableId] = [];
+        tableData[p.tableId].push(p.name);
+      });
+      const topEntry = Object.entries(tableData).sort((a, b) => b[1].length - a[1].length)[0];
+      const tableId = topEntry[0];
+      const panelList = topEntry[1].join(', ');
+      return { label: `MAINTENANCE: Check ${tableId} (${panelList})` };
+    }
+    return null;
+  })();
 
   const systemMetrics = (() => {
     let totalPower = 0;
@@ -463,7 +504,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     };
   })();
 
-  const isTechnician = (user?.role === 'technician');
+
 
   if (!user) {
     return (
@@ -478,7 +519,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+    <div className="h-full flex flex-col bg-gradient-to-br from-primary/5 via-background to-secondary/5 overflow-hidden">
       {/* Header - conditionally hidden */}
       {!hideHeader && (
         <header className="glass-header sticky top-0 z-10">
@@ -533,185 +574,68 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
         </header>
       )}
 
-      <main className="container mx-auto px-4 py-6 flex-1 flex flex-col min-h-0">
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px] flex-1">
-          {/* Main Content - EXACT SAME AS ViewTables */}
-          <div className="flex flex-col gap-6 overflow-hidden min-h-0">
-            {/* Status Overview - EXACT SAME AS ViewTables */}
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-primary" />
-                  Plant Status Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Total Tables</p>
-                    <p className="text-2xl font-bold">{tables.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Total Panels</p>
-                    <p className="text-2xl font-bold">{panels.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Good Panels</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {panels.filter(p => p.status === 'good').length}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Faulty Culprits</p>
-                    <p className="text-xl font-bold text-red-600">
-                      {culpritPanels.length}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {seriesSummary.affected} panels affected by series
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      <main className="container mx-auto px-4 py-2 flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
+          {/* Left Column: Panels (Independently Scrollable) */}
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+            <div className="flex flex-col gap-6 pb-20">
 
-            {/* Advanced Solar Calculations - Dynamic System Metrics */}
-            <Card className="glass-card border-primary/20 bg-primary/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-primary" />
-                  System Performance & Real-time Metrics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Total Voltage</p>
-                    <p className="text-xl font-bold">{systemMetrics.totalVoltage} V</p>
-                    <p className="text-[10px] text-muted-foreground">Series Avg/Table</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Total Current</p>
-                    <p className="text-xl font-bold">{systemMetrics.totalCurrent} A</p>
-                    <p className="text-[10px] text-muted-foreground">Parallel Combined</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Gross Power</p>
-                    <p className="text-xl font-bold text-primary">{systemMetrics.grossPower} kW</p>
-                    <p className="text-[10px] text-muted-foreground">Raw Output (W)</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Net Power</p>
-                    <p className="text-xl font-bold text-green-600">{systemMetrics.netPower} kW</p>
-                    <p className="text-[10px] text-muted-foreground">Incl. Losses</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Efficiency</p>
-                    <p className="text-xl font-bold text-blue-600">{systemMetrics.efficiency}%</p>
-                    <p className="text-[10px] text-muted-foreground">Panel Rating</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase font-semibold">Total Loss</p>
-                    <p className="text-xl font-bold text-orange-600">{systemMetrics.totalLoss}%</p>
-                    <p className="text-[10px] text-muted-foreground">Temp & System</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Panel Legend */}
-            <Card className="glass-card">
-              <CardContent className="py-4 flex flex-wrap items-center justify-center gap-6">
-                <div className="flex items-center gap-2">
-                  <img src="/images/panels/good.png" className="w-8 h-8 object-contain" alt="Good" />
-                  <span className="text-sm font-medium text-green-700">Healthy (Good)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <img src="/images/panels/moderate.png" className="w-8 h-8 object-contain" alt="Moderate" />
-                  <span className="text-sm font-medium text-yellow-700">Moderate Defect</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <img src="/images/panels/bad.png" className="w-8 h-8 object-contain" alt="Bad" />
-                  <span className="text-sm font-medium text-red-700">Critical Fault (Bad)</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-slate-800">Unit Monitoring</h2>
-              <div className="flex bg-slate-200/50 p-1 rounded-xl border border-slate-200">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className={viewMode === 'grid' ? 'rounded-lg shadow-sm' : 'rounded-lg'}
-                >
-                  Detailed Grid
-                </Button>
-                <Button
-                  variant={viewMode === 'table' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('table')}
-                  className={viewMode === 'table' ? 'rounded-lg shadow-sm' : 'rounded-lg'}
-                >
-                  Live Data Table
-                </Button>
-                <Button
-                  variant={viewMode === 'faults' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('faults')}
-                  className={viewMode === 'faults' ? 'rounded-lg shadow-sm' : 'rounded-lg'}
-                >
-                  Fault Status Table
-                </Button>
+              <div className={`flex items-center justify-between ${isTechnician ? 'mb-1' : 'mb-2'}`}>
+                <h2 className="text-xl font-bold text-slate-800">Unit Monitoring</h2>
+                {isTechnician && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 border-yellow-500/50 text-yellow-700 hover:bg-yellow-50 font-semibold"
+                    onClick={() => setShowMakeFault(true)}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Make Fault
+                  </Button>
+                )}
               </div>
-            </div>
 
-            {/* Tables and Panels */}
-            {viewMode === 'grid' ? (
-              tables.length > 0 ? (
-                <div className="flex-1 overflow-auto space-y-6">
+              {/* Tables and Panels - Compact Grid */}
+              {tables.length > 0 ? (
+                <div className="flex-1 overflow-auto space-y-1 pr-1 custom-scrollbar">
                   {tables.map((table) => {
                     const tableId = table.id || table.node || table.serialNumber;
                     const tablePanels = panels.filter(p => p.tableId === tableId);
 
                     return (
-                      <div key={tableId} className="flex items-center gap-4 p-4 bg-white/50 border border-white/40 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
-                        {/* Node ID Section */}
-                        <div className="flex-shrink-0 w-32">
-                          <div className="bg-slate-100 text-slate-800 border border-slate-200 shadow-sm rounded-lg px-3 py-2 font-semibold text-lg text-center tracking-tight">
+                      <div key={tableId} className="flex items-center gap-2 px-2 py-0.5 bg-white/50 border border-white/40 rounded-md shadow-sm hover:shadow-md transition-all duration-200">
+                        {/* Node ID Section - Balanced Compact */}
+                        <div className="flex-shrink-0 w-20">
+                          <div className="bg-slate-100 text-slate-800 border border-slate-200 shadow-xs rounded px-1.5 py-0.5 font-bold text-xs text-center tracking-tight truncate">
                             {table.node || table.serialNumber || 'TBL'}
                           </div>
-                          {isTechnician && (
-                            <Button size="xs" variant="ghost" className="w-full mt-1 text-[10px] h-5 text-muted-foreground hover:text-primary" onClick={() => handleAddPanel(tableId)}>
-                              <Plus className="w-3 h-3 mr-1" /> Add
-                            </Button>
-                          )}
                         </div>
 
-                        {/* Panels Scrollable Row */}
+                        {/* Panels Row - Ultra Compact Wrapping */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex gap-2 pb-2 overflow-x-auto custom-scrollbar">
+                          <div className="flex flex-wrap gap-0.5">
                             {tablePanels.map((p) => (
                               <div
                                 key={p.id}
-                                className="flex-shrink-0 flex flex-col items-center group cursor-pointer transition-transform duration-200 active:scale-95 hover:-translate-y-1"
+                                className="flex flex-col items-center group cursor-pointer transition-transform duration-200 active:scale-95 hover:-translate-y-0.5"
                                 onClick={() => handlePanelClick(p, table.id || table.node || table.serialNumber)}
                                 title={`Panel ${p.name}: ${p.currentVoltage}V`}
                               >
-                                <div className="w-8 h-12 border border-slate-200 rounded-md flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-sm">
+                                <div className="w-8 h-10 border border-slate-200 rounded-sm flex items-center justify-center overflow-hidden relative bg-slate-100 shadow-xs">
                                   <img
                                     src={p.status === 'bad' ? '/images/panels/bad.png' : p.status === 'moderate' ? '/images/panels/moderate.png' : '/images/panels/good.png'}
                                     alt={p.status}
                                     className="absolute inset-0 w-full h-full object-cover"
                                   />
-                                  <div className="absolute inset-x-0 bottom-0 bg-black/60 py-[1px] flex justify-center backdrop-blur-[1px]">
-                                    <span className="text-[6px] font-bold text-white leading-none tracking-tight">{p.currentVoltage.toFixed(1)}V</span>
+                                  <div className="absolute inset-x-0 bottom-0 bg-black/60 py-[0.1px] flex justify-center backdrop-blur-[0.5px]">
+                                    <span className="text-[5px] font-bold text-white leading-none tracking-tighter">{Math.round(p.currentVoltage)}V</span>
                                   </div>
                                 </div>
                               </div>
                             ))}
                             {tablePanels.length === 0 && (
-                              <div className="text-xs text-muted-foreground italic py-2 pl-2">No panels.</div>
+                              <div className="text-[8px] text-muted-foreground italic py-0.5 pl-0.5">No panels.</div>
                             )}
                           </div>
                         </div>
@@ -732,187 +656,49 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                     </p>
                   </CardContent>
                 </Card>
-              )
-            ) : viewMode === 'faults' ? (
-              <Card className="glass-card">
-                <CardContent className="p-0 overflow-auto">
-                  <div className="min-w-full overflow-x-auto">
-                    <table className="w-full text-sm text-left border-collapse">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Time</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Node</th>
-                          {/* Dynamic Headers P1...PN */}
-                          {Array.from({
-                            length: Math.max(
-                              ...nodeFaultStatusData.map(d => {
-                                // Count keys matching P\d+
-                                return Object.keys(d).filter(k => /^P\d+$/.test(k)).length;
-                              }),
-                              ...tables.map(t => t.panelVoltages?.length || 0),
-                              20 // Default fallback minimum
-                            )
-                          }).map((_, i) => (
-                            <th key={i} className="px-4 py-3 font-bold text-slate-700 text-center min-w-[60px] border-r">P{i + 1}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {nodeFaultStatusData.map((row, idx) => {
-                          const maxCols = Math.max(
-                            ...nodeFaultStatusData.map(d => Object.keys(d).filter(k => /^P\d+$/.test(k)).length),
-                            ...tables.map(t => t.panelVoltages?.length || 0),
-                            20
-                          );
-                          return (
-                            <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap border-r text-[11px]">
-                                {new Date(row.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                              </td>
-                              <td className="px-4 py-3 font-bold text-primary border-r">
-                                {row.node}
-                              </td>
-                              {Array.from({ length: maxCols }).map((_, i) => {
-                                const status = row[`P${i + 1}`] || 'unknown';
-                                let colorClass = 'text-slate-400';
-                                if (status === 'good') colorClass = 'text-green-600 font-medium';
-                                if (status === 'moderate') colorClass = 'text-yellow-600 font-bold';
-                                if (status === 'bad') colorClass = 'text-red-600 font-bold';
-
-                                return (
-                                  <td key={i} className={`px-2 py-3 text-center border-r text-xs ${colorClass}`}>
-                                    {status === 'unknown' ? '-' : status}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                        {nodeFaultStatusData.length === 0 && (
-                          <tr>
-                            <td colSpan={22} className="text-center py-8 text-muted-foreground italic">
-                              No fault status data available. Create some faults to see data here.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="glass-card">
-                <CardContent className="p-0 overflow-auto">
-                  <div className="min-w-full overflow-x-auto">
-                    <table className="w-full text-sm text-left border-collapse">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r">ObjectId</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Node/Table</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Time</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Temparature</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r whitespace-nowrap">Light intensity</th>
-                          <th className="px-4 py-3 font-bold text-slate-700 border-r">Current</th>
-                          {/* Dynamically find max p-index */}
-                          {Array.from({
-                            length: Math.max(...flatLiveData.map(d =>
-                              Object.keys(d).filter(k => k.startsWith('p') && k.endsWith('_v')).length
-                            ), 0)
-                          }).map((_, i) => (
-                            <th key={i} className="px-4 py-3 font-bold text-slate-700 text-center min-w-[70px] border-r">P{i + 1}_v</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {flatLiveData.map((row, idx) => {
-                          const pVoltKeys = Object.keys(row)
-                            .filter(k => /^p\d+_v$/.test(k))
-                            .sort((a, b) => {
-                              const na = parseInt(a.match(/\d+/)![0]);
-                              const nb = parseInt(b.match(/\d+/)![0]);
-                              return na - nb;
-                            });
-
-                          return (
-                            <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                              <td className="px-4 py-3 text-slate-500 font-mono text-[10px] border-r">
-                                {row._id}
-                              </td>
-                              <td className="px-4 py-3 font-bold text-primary border-r">
-                                {row.id || row.node || row.serialNumber}
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 whitespace-nowrap border-r text-[11px]">
-                                {new Date(row.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 border-r text-center">
-                                {row.temparature?.toFixed(1)}°C
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 border-r text-center">
-                                {row.lightintensity}
-                              </td>
-                              <td className="px-4 py-3 text-slate-600 border-r text-center font-semibold">
-                                {row.current?.toFixed(2)}A
-                              </td>
-                              {pVoltKeys.map((pKey, sIdx) => (
-                                <td key={sIdx} className="px-4 py-3 text-center border-r bg-slate-50/30">
-                                  {row[pKey]?.toFixed(1)}V
-                                </td>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {flatLiveData.length === 0 && (
-                    <div className="py-12 text-center text-muted-foreground italic">
-                      No live data available.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Sidebar - EXACT SAME AS ViewTables */}
-          <div className="w-full lg:w-[360px] h-full overflow-auto space-y-6">
+          {/* Right Column: Sidebar (Fixed / No Scroll) */}
+          <div className={`w-full lg:w-[320px] shrink-0 h-full flex flex-col gap-3 pb-4 lg:pb-0 overflow-hidden`}>
             {isTechnician && (
-              <Card className="glass-card">
-                <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm">Propagate series fault</div>
-                    <input type="checkbox" checked={propagateSeries} onChange={(e) => setPropagateSeries(e.target.checked)} />
+              <Card className="glass-card shadow-sm border-slate-100 bg-slate-50/50">
+                <CardContent className="p-2 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase cursor-pointer" htmlFor="propagate-cb">Propagate series fault</Label>
+                    <input id="propagate-cb" type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 pointer-events-auto" checked={propagateSeries} onChange={(e) => setPropagateSeries(e.target.checked)} />
                   </div>
-                  <div className="mt-3">
-                    <Button size="sm" onClick={() => setShowMakeFault(true)}>Make Fault</Button>
-                  </div>
+                  <Button size="xs" className="w-full h-8 text-[11px] font-bold shadow-sm" onClick={() => setShowMakeFault(true)}>
+                    <AlertTriangle className="w-3 h-3 mr-1.5" />
+                    Make Fault
+                  </Button>
                 </CardContent>
               </Card>
             )}
+
 
 
             {/* Fault Panels with Dropdown - technicians only */}
             {isTechnician && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
+              <Card className="glass-card shadow-sm border-slate-100">
+                <CardHeader className="p-2 pb-1.5 flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                    <AlertCircle className="h-3.5 w-3.5 text-red-500" />
                     Panel Status
                   </CardTitle>
-                  <div className="mt-2">
-                    <Select value={faultPanelType} onValueChange={(value: 'all' | 'fault' | 'repairing') => setFaultPanelType(value)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select panel type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Faulty Panels ({faultPanels.length + repairingPanels.length})</SelectItem>
-                        <SelectItem value="fault">Fault Panels ({faultPanels.length})</SelectItem>
-                        <SelectItem value="repairing">Repairing Panels ({repairingPanels.length})</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={faultPanelType} onValueChange={(value: 'all' | 'fault' | 'repairing') => setFaultPanelType(value)}>
+                    <SelectTrigger className="w-24 h-6 text-[9px] px-1.5 bg-slate-50 border-slate-200">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-[10px]">All ({faultPanels.length + repairingPanels.length})</SelectItem>
+                      <SelectItem value="fault" className="text-[10px]">Fault ({faultPanels.length})</SelectItem>
+                      <SelectItem value="repairing" className="text-[10px]">Rep ({repairingPanels.length})</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-2 pt-0">
                   {(() => {
                     let panelsToShow: typeof faultPanels = [];
                     let panelType = '';
@@ -929,33 +715,33 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                     }
 
                     return panelsToShow.length > 0 ? (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                      <div className="space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                         {panelsToShow.map((panel) => (
                           <div
                             key={panel.id}
-                            className={`flex items-center justify-between p-2 rounded-lg border ${panel.status === 'bad'
-                              ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
-                              : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
+                            className={`flex items-center justify-between p-1.5 rounded border ${panel.status === 'bad'
+                              ? 'bg-red-50/50 border-red-100'
+                              : 'bg-yellow-50/50 border-yellow-100'
                               }`}
                           >
-                            <div>
-                              <p className="text-sm font-semibold">{panel.id}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {panel.tableId} - {panel.position} - {panel.name}
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold leading-tight truncate">{panel.id}</p>
+                              <p className="text-[8px] text-muted-foreground truncate">
+                                {panel.tableId} • {panel.name}
                               </p>
                             </div>
                             <Badge
                               variant={panel.status === 'bad' ? 'destructive' : 'secondary'}
-                              className={`text-xs ${panel.status === 'moderate' ? 'bg-yellow-500 text-yellow-900' : ''}`}
+                              className={`text-[8px] h-3.5 px-1 ${panel.status === 'moderate' ? 'bg-yellow-500 text-yellow-900' : ''}`}
                             >
-                              {panel.status === 'bad' ? 'Fault' : 'Moderate'}
+                              {panel.status === 'bad' ? 'Fault' : 'Mod'}
                             </Badge>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No {panelType.toLowerCase()} panels detected
+                      <p className="text-[9px] text-muted-foreground text-center py-2 italic">
+                        No {panelType.toLowerCase()} detected
                       </p>
                     );
                   })()}
@@ -964,57 +750,44 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             )}
 
             {isTechnician && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Activity className="h-5 w-5 text-primary" />
-                    Priority to Fix/Losses
+              <Card className="glass-card shadow-sm border-slate-100">
+                <CardHeader className="p-2 pb-1 bg-slate-50/30">
+                  <CardTitle className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                    <Activity className="h-3.5 w-3.5 text-primary" />
+                    Priority / Losses
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-2 pt-1.5">
                   {priorityToFix ? (
-                    <p className="text-base font-extrabold text-orange-600">
+                    <p className="text-[10px] font-extrabold text-orange-600 leading-tight">
                       {priorityToFix.label}
                     </p>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No losses detected</p>
+                    <p className="text-[9px] text-muted-foreground italic py-0.5">No losses detected</p>
                   )}
                 </CardContent>
               </Card>
             )}
 
+
             {isTechnician && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Activity className="h-5 w-5 text-primary" />
-                    Panel Currents (Issues)
-                  </CardTitle>
+              <Card className="glass-card shadow-sm border-slate-100 bg-slate-50/50">
+                <CardHeader className="p-2 pb-1 border-b border-slate-100/50">
+                  <CardTitle className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Status Legend</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const affected = panels.filter(p => p.status !== 'good');
-                    return affected.length > 0 ? (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {affected.map((p) => (
-                          <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg border ${p.status === 'bad' ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'}`}>
-                            <div>
-                              <p className="text-sm font-semibold">{p.id}</p>
-                              <p className="text-xs text-muted-foreground">{p.position.toUpperCase()} • {p.name}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-semibold">{p.currentCurrent} A</p>
-                              <Badge variant={p.status === 'bad' ? 'destructive' : 'secondary'} className={`text-xs ${p.status !== 'bad' ? 'bg-yellow-500 text-yellow-900' : ''}`}>
-                                {p.status === 'bad' ? 'Fault' : 'Moderate'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-4">No faulty or repairing panels</p>
-                    );
-                  })()}
+                <CardContent className="p-2 pt-1.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <img src="/images/panels/good.png" className="w-3.5 h-3.5 object-contain" alt="Good" />
+                    <span className="text-[10px] font-medium text-green-700">Healthy</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <img src="/images/panels/moderate.png" className="w-3.5 h-3.5 object-contain" alt="Moderate" />
+                    <span className="text-[10px] font-medium text-yellow-700">Moderate</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <img src="/images/panels/bad.png" className="w-3.5 h-3.5 object-contain" alt="Bad" />
+                    <span className="text-[10px] font-medium text-red-700">Critical</span>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1178,7 +951,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   step="0.1"
                   value={mfCurrent}
                   onChange={(e) => setMfCurrent(e.target.value)}
-                  placeholder={`Nominal: ${expectedCurrent}A`}
+                  placeholder={`Nominal: ${expectedCurrent.toFixed(1)}A`}
                 />
               </div>
               <div className="space-y-2">
@@ -1188,16 +961,16 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   step="0.1"
                   value={mfVoltage}
                   onChange={(e) => setMfVoltage(e.target.value)}
-                  placeholder={`Nominal: ${expectedVoltage}V`}
+                  placeholder={`Nominal: ${expectedVoltage.toFixed(1)}V`}
                 />
               </div>
             </div>
             {/* Threshold guidance and live preview */}
             <div className="rounded-md border p-3 text-xs space-y-2 bg-muted/40">
               <div className="font-semibold">Health thresholds</div>
-              <div>• Good: ≥ {expectedCurrent.toFixed(1)} A (≈ 100%)</div>
-              <div>• Moderate: ≥ {(expectedCurrent * 0.5).toFixed(1)} A and &lt; {expectedCurrent.toFixed(1)} A (≈ 50%–99%)</div>
-              <div>• Fault: &lt; {(expectedCurrent * 0.5).toFixed(1)} A (≈ &lt;50%)</div>
+              <div>• Good: ≥ {(expectedVoltage * 0.98).toFixed(1)} V (≈ 98%–100%)</div>
+              <div>• Moderate: ≥ {(expectedVoltage * 0.5).toFixed(1)} V and &lt; {(expectedVoltage * 0.98).toFixed(1)} V (≈ 50%–97%)</div>
+              <div>• Fault: &lt; {(expectedVoltage * 0.5).toFixed(1)} V (≈ &lt; 50%)</div>
               {(() => {
                 const v = parseFloat(mfVoltage);
                 if (!Number.isFinite(v) || expectedVoltage <= 0) return null;
@@ -1274,7 +1047,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
                   return;
                 }
                 console.log('[MakeFault] Sending request:', {
-                  companyId: user.companyId,
+                  companyId: user?.companyId || 'MISSING',
                   tableId: mfTableId,
                   position: 'Main',
                   index: mfPanelIndex,

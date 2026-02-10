@@ -13,8 +13,8 @@ export const getApiBaseUrl = () => {
     return 'http://localhost:5000/api';
   }
 
-  // default for production (Render)
-  return 'https://plant-9uk7.onrender.com/api';
+  // default for production (Relative path for generic Linux server)
+  return '/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -118,6 +118,15 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
     }
     if (options.body) headers['Content-Type'] = 'application/json';
 
+    // Add JWT Token
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      // @ts-ignore
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('[apiCall] No auth_token found in localStorage!');
+    }
+
     const response = await fetch(url, {
       ...options,
       headers,
@@ -128,7 +137,31 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
 
     if (!response.ok) {
       markRequestFailed(endpoint);
-      throw new Error(`API failed: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+
+      // Handle Force Logout / Session Invalidation from backend
+      // Handle Force Logout / Session Invalidation from backend
+      if (response.status === 401) {
+        const msg = errorData.error || 'something went wrong try to login again';
+        console.warn(`[Auth] 401 Unauthorized: ${msg}`);
+
+        // Remove stale data
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('currentUser');
+
+        // PREVENT LOOP: Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          console.log('[Auth] Redirecting to login...');
+          window.location.href = `/login?error=${encodeURIComponent(msg)}`;
+        }
+      }
+
+      const error = new Error(errorData.error || `API failed: ${response.status}`);
+      // @ts-ignore
+      error.status = response.status;
+      // @ts-ignore
+      error.data = errorData;
+      throw error;
     }
 
     const data = await response.json();
@@ -148,8 +181,28 @@ export const getStaffEntries = async (companyId: string) => {
 
 // --- API Methods ---
 
+// Super Admin: Get all blocked company admins
+export const getBlockedAdmins = async (): Promise<any[]> => {
+  try {
+    return await apiCall('/superadmin/blocked-admins');
+  } catch (error) {
+    console.error('Error fetching blocked admins:', error);
+    return [];
+  }
+};
+
 export const getAllCompanies = async (): Promise<CompanyFolder[]> => {
-  return await apiCall('/companies');
+  const data = await apiCall('/companies');
+  // Map SQL backend fields to Frontend interface
+  return data.map((c: any) => ({
+    ...c,
+    id: c.companyId || c.id,
+    name: c.companyName || c.name,
+    plantPowerKW: c.plantPowerKW,
+    voltagePerPanel: c.voltagePerPanel,
+    currentPerPanel: c.currentPerPanel,
+    totalTables: c.totalTables || 0
+  }));
 };
 
 export const createCompanyFolder = async (
@@ -163,24 +216,24 @@ export const createCompanyFolder = async (
   });
 };
 
-export const addTableToPlant = async (companyId: string, panelCount: number) => {
+export const addTableToPlant = async (companyId: string, panelCount: number, nodeName?: string, voltage?: number, current?: number) => {
   return await apiCall(`/companies/${companyId}/tables`, {
     method: 'POST',
-    body: JSON.stringify({ panelCount }),
+    body: JSON.stringify({ panelCount, nodeName, voltage, current }),
   });
 };
 
-export const updateTableInPlant = async (companyId: string, tableId: string, panelCount: number, sn?: string) => {
+export const updateTableInPlant = async (companyId: string, tableId: string, panelCount: number, sn?: string, v?: number, c?: number) => {
   return await apiCall(`/companies/${companyId}/tables/${tableId}`, {
     method: 'PUT',
-    body: JSON.stringify({ panelCount, serialNumber: sn }),
+    body: JSON.stringify({ panelCount, serialNumber: sn, voltagePerPanel: v, currentPerPanel: c }),
   });
 };
 
-export const updatePlantSettings = async (companyId: string, v: number, c: number) => {
+export const updatePlantSettings = async (companyId: string, v: number, c: number, p: number) => {
   return await apiCall(`/companies/${companyId}/plant`, {
     method: 'PUT',
-    body: JSON.stringify({ voltagePerPanel: v, currentPerPanel: c }),
+    body: JSON.stringify({ voltagePerPanel: v, currentPerPanel: c, plantPowerKW: p }),
   });
 };
 
@@ -199,8 +252,24 @@ export const addStaffEntry = async (
   });
 };
 
+export const updateStaffEntry = async (
+  companyId: string, entryId: string, payload: any, force: boolean = false
+) => {
+  return await apiCall(`/companies/${companyId}/entries/${entryId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ ...payload, force }),
+  });
+};
+
+export const deleteStaffEntry = async (companyId: string, entryId: string, force: boolean = false) => {
+  return await apiCall(`/companies/${companyId}/entries/${entryId}?force=${force}`, {
+    method: 'DELETE'
+  });
+};
+
 export const getPlantDetails = async (companyId: string): Promise<PlantDetails | null> => {
   try {
+    if (!companyId || companyId === 'undefined') return null;
     const data = await apiCall(`/companies/${companyId}`);
     if (data && data.live_data) {
       data.tables = data.live_data;
@@ -223,12 +292,17 @@ export const getAdminCredentials = async (companyId: string): Promise<AdminCrede
   return await apiCall(`/companies/${companyId}/admin`);
 };
 
-export const deleteCompanyFolder = async (companyId: string, superAdminPassword?: string) => {
-  return await apiCall(`/companies/${companyId}`, {
+export const deleteCompanyFolder = async (companyId: string, superAdminPassword?: string, force: boolean = false) => {
+  return await apiCall(`/companies/${companyId}?force=${force}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ superAdminPassword })
   });
+};
+
+export const getCompanySessionStatus = async (companyId: string): Promise<number> => {
+  const res = await apiCall(`/companies/${companyId}/session-status`);
+  return res.activeSessions || 0;
 };
 
 export const verifySuperAdminPassword = async (password: string): Promise<boolean> => {
@@ -281,7 +355,7 @@ export const setPanelCurrent = async (
   const headers: HeadersInit = {};
   if (userEmail) headers['x-user-email'] = userEmail;
   if (userRole) headers['x-user-role'] = userRole;
-  
+
   return await apiCall(`/companies/${companyId}/panels/current`, {
     method: 'PUT',
     headers,

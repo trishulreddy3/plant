@@ -5,6 +5,7 @@ export type UserRole = 'super_admin' | 'plant_admin' | 'technician' | 'managemen
 
 export interface User {
   id: string;
+  name: string; // Added
   email: string;
   role: UserRole;
   companyName?: string;
@@ -75,15 +76,9 @@ export const setCurrentUser = (user: User | null) => {
 
     // Store user in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(userWithTimestamp));
-
-    // Also set a secure cookie for additional security
-    const cookieExpiry = new Date();
-    cookieExpiry.setTime(cookieExpiry.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
-    document.cookie = `auth_token=${user.id};expires=${cookieExpiry.toUTCString()};path=/;secure;samesite=strict`;
   } else {
     // Clear stored data on logout
     localStorage.removeItem('currentUser');
-    document.cookie = 'auth_token=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
   }
 };
 
@@ -93,7 +88,7 @@ export const setCurrentUser = (user: User | null) => {
 // This will be replaced in next steps after verifying server.js
 // Only replacing to avoid error, but I will do the comprehensive refactor in next steps.
 // Use checkBackendCredentials logic which I will REWRITE to use the API directly.
-export const login = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string }> => {
+export const login = async (email: string, password: string, companyName?: string, selectedRole?: 'admin' | 'technician' | 'management'): Promise<{ success: boolean; user?: User; error?: string; adminEmail?: string; superAdminEmail?: string }> => {
   try {
     // Use the backend API directly via realFileSystem or fetch
     // I will implement a direct API call here since checkBackendCredentials is convoluted
@@ -110,9 +105,18 @@ export const login = async (email: string, password: string, companyName?: strin
     const data = await response.json();
 
     if (data.success && data.user) {
+      // Save Token for API calls
+      if (data.token) {
+        console.log('[Login] Saving auth_token:', data.token.substring(0, 10) + '...');
+        localStorage.setItem('auth_token', data.token);
+      } else {
+        console.error('[Login] SUCCESS but NO TOKEN returned!');
+      }
+
       // Map backend user to frontend User type if needed
       const user: User = {
         id: data.user.id || data.user.userId,
+        name: data.user.name || 'User', // Added name mapping
         email: data.user.email,
         role: data.user.role,
         companyName: data.user.companyName,
@@ -120,13 +124,6 @@ export const login = async (email: string, password: string, companyName?: strin
         createdAt: new Date().toISOString(),
         sessionId: data.user.sessionId
       };
-
-      // Legacy mapping: if role is 'admin' and not super admin, map to 'plant_admin'?
-      // The frontend expects 'plant_admin' in some places?
-      // Let's check UserRole type: 'super_admin' | 'plant_admin' | 'technician' | 'management' | 'admin'
-      // If backend returns 'admin', we might want to keep it or map it.
-      // UnifiedLogin handles: super_admin, plant_admin, technician, management.
-      // Server returns: 'super_admin', 'admin', 'management', 'technician'.
 
       if (user.role === 'admin') {
         if (user.email === 'superadmin@gmail.com' || user.companyName === 'microsyslogic') {
@@ -140,7 +137,12 @@ export const login = async (email: string, password: string, companyName?: strin
       return { success: true, user };
     }
 
-    return { success: false, error: data.error || data.message || 'Login failed' };
+    return {
+      success: false,
+      error: data.error || data.message || 'Login failed',
+      adminEmail: data.adminEmail,
+      superAdminEmail: data.superAdminEmail
+    };
   } catch (error) {
     console.error('❌ Login error:', error);
     return { success: false, error: 'Login failed. Please try again.' };
@@ -160,11 +162,16 @@ export const logout = async () => {
       const { getApiBaseUrl } = await import('./realFileSystem');
       const API_BASE_URL = getApiBaseUrl();
 
-      // Send logout request to backend (fire and forget)
-      fetch(`${API_BASE_URL}/auth/logout`, {
+      // Send logout request to backend and wait for it
+      await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, sessionId: user.sessionId })
+        body: JSON.stringify({
+          userId: user.id,
+          userName: user.name,
+          companyName: user.companyName,
+          sessionId: user.sessionId
+        })
       }).catch(e => console.warn('Logout backend call failed', e));
 
       console.log(`[LOGOUT] Session ${user?.sessionId} closed for ${user?.id}`);
@@ -214,8 +221,8 @@ export const storeCredentials = (email: string, password: string, remember: bool
 // Clear all stored data (for logout)
 export const clearAllStoredData = () => {
   localStorage.removeItem('currentUser');
+  localStorage.removeItem('auth_token'); // Clear the token!
   localStorage.removeItem('rememberedCredentials');
-  document.cookie = 'auth_token=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
 };
 
 // Company management

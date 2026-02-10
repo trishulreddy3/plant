@@ -1,21 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel
+} from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Trash2, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 
 interface DeleteConfirmationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (password: string) => void;
+  onConfirm: (password: string, force?: boolean) => void;
   title: string;
   description: string;
   entityName: string;
   entityType: 'company' | 'user';
   adminEmail: string;
   isLoading?: boolean;
+  error?: string;
+  onClearError?: () => void;
 }
 
 export const DeleteConfirmationDialog = ({
@@ -28,18 +38,32 @@ export const DeleteConfirmationDialog = ({
   entityType,
   adminEmail,
   isLoading = false,
+  error: externalError,
+  onClearError
 }: DeleteConfirmationDialogProps) => {
   const [step, setStep] = useState(1);
   const [confirmationText, setConfirmationText] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [internalError, setInternalError] = useState('');
+  const [forceMode, setForceMode] = useState(false);
+
+  // Sync force mode with external error
+  useEffect(() => {
+    if (externalError?.includes('still logged in') || externalError?.includes('forcely')) {
+      setForceMode(true);
+    } else if (externalError) {
+      setForceMode(false);
+    }
+  }, [externalError]);
 
   const handleClose = () => {
     setStep(1);
     setConfirmationText('');
     setPassword('');
-    setError('');
+    setInternalError('');
+    setForceMode(false);
+    if (onClearError) onClearError();
     onClose();
   };
 
@@ -47,15 +71,15 @@ export const DeleteConfirmationDialog = ({
     if (step === 1) {
       if (confirmationText === entityName) {
         setStep(2);
-        setError('');
+        setInternalError('');
       } else {
-        setError(`Please type "${entityName}" to confirm`);
+        setInternalError(`Please type "${entityName}" to confirm`);
       }
     } else if (step === 2) {
       if (password.trim()) {
-        onConfirm(password);
+        onConfirm(password, forceMode);
       } else {
-        setError('Please enter your password');
+        setInternalError('Please enter your password');
       }
     }
   };
@@ -77,7 +101,6 @@ export const DeleteConfirmationDialog = ({
         </AlertDialogHeader>
 
         <div className="space-y-4">
-          {/* Step 1: Confirmation Text */}
           {step === 1 && (
             <div className="space-y-3">
               <Alert className="border-red-200 bg-red-50 dark:bg-red-950">
@@ -96,7 +119,8 @@ export const DeleteConfirmationDialog = ({
                   value={confirmationText}
                   onChange={(e) => {
                     setConfirmationText(e.target.value);
-                    setError('');
+                    setInternalError('');
+                    if (onClearError) onClearError();
                   }}
                   placeholder={`Type ${entityName} here`}
                   className="border-red-200 focus:border-red-500"
@@ -105,7 +129,6 @@ export const DeleteConfirmationDialog = ({
             </div>
           )}
 
-          {/* Step 2: Password Confirmation */}
           {step === 2 && (
             <div className="space-y-3">
               <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950">
@@ -126,7 +149,8 @@ export const DeleteConfirmationDialog = ({
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
-                      setError('');
+                      setInternalError('');
+                      if (onClearError) onClearError();
                     }}
                     placeholder="Enter your password"
                     className="border-orange-200 focus:border-orange-500 pr-10"
@@ -149,12 +173,22 @@ export const DeleteConfirmationDialog = ({
             </div>
           )}
 
-          {/* Error Message */}
-          {error && (
+          {/* Internal Validation Error */}
+          {internalError && (
             <Alert className="border-red-200 bg-red-50 dark:bg-red-950">
               <AlertTriangle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800 dark:text-red-200">
-                {error}
+                {internalError}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* External Backend Error (e.g. Session Warning) */}
+          {externalError && (
+            <Alert className={`border-orange-400 bg-orange-100 dark:bg-orange-900 shadow-md ${forceMode ? 'animate-pulse' : ''}`}>
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <AlertDescription className="text-orange-900 dark:text-orange-100 font-bold">
+                {externalError}
               </AlertDescription>
             </Alert>
           )}
@@ -164,7 +198,7 @@ export const DeleteConfirmationDialog = ({
           <AlertDialogCancel onClick={handleClose} disabled={isLoading}>
             Cancel
           </AlertDialogCancel>
-          
+
           {step === 1 && (
             <Button
               onClick={handleNext}
@@ -174,15 +208,15 @@ export const DeleteConfirmationDialog = ({
               Next Step
             </Button>
           )}
-          
+
           {step === 2 && (
             <Button
               onClick={handleNext}
               disabled={!isStep2Valid || isLoading}
               variant="destructive"
-              className="bg-red-600 hover:bg-red-700"
+              className={forceMode ? "bg-orange-600 hover:bg-orange-700 font-extrabold shadow-lg" : "bg-red-600 hover:bg-red-700"}
             >
-              {isLoading ? 'Deleting...' : `Delete ${entityType === 'company' ? 'Company' : 'User'}`}
+              {isLoading ? 'Processing...' : forceMode ? 'PROCEED FORCEFULLY' : `Delete ${entityType === 'company' ? 'Company' : 'User'}`}
             </Button>
           )}
         </AlertDialogFooter>

@@ -27,48 +27,50 @@ const SecurityManagement = () => {
     const [loading, setLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
-    const fetchStaff = async () => {
+    const fetchStaff = async (isInitial = false) => {
         if (!user?.companyId) return;
         try {
-            setLoading(true);
+            if (isInitial) setLoading(true);
             const data = await getStaffEntries(user.companyId);
-            setEntries(data);
+            // Filter out current user from display (Admins shouldn't manage themselves)
+            const filteredData = Array.isArray(data) ? data.filter((e: any) => e.email !== user.email) : [];
+            setEntries(filteredData);
         } catch (error) {
             console.error('Error fetching staff for security:', error);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchStaff();
-        // Auto-refresh status every 5 seconds for real-time feel
-        const interval = setInterval(fetchStaff, 5000);
+        fetchStaff(true); // Load initially
+        // Auto-refresh status every 10 seconds for real-time feel
+        const interval = setInterval(() => fetchStaff(false), 10000);
         return () => clearInterval(interval);
     }, [user?.companyId]);
 
-    const handleToggleStatus = async (entry: AccountEntry) => {
+    const handleUnblock = async (entry: AccountEntry) => {
         if (!user?.companyId) return;
-        const newStatus = entry.status === 'blocked' ? 'active' : 'blocked';
 
         try {
             setIsUpdating(entry.id);
-            await updateStaffStatus(user.companyId, entry.id, newStatus);
+            // Explicitly set to 'active' (unblock), no toggle.
+            await updateStaffStatus(user.companyId, entry.id, 'active');
 
             toast({
-                title: `Account ${newStatus === 'active' ? 'Unblocked' : 'Blocked'}`,
-                description: `${entry.name}'s account is now ${newStatus}.`,
+                title: 'Account Unblocked',
+                description: `${entry.name}'s account has been successfully verified and unblocked.`,
             });
 
-            // Update local state
+            // Update local state immediately for better UX
             setEntries(prev => prev.map(e =>
-                e.id === entry.id ? { ...e, status: newStatus, failedLoginAttempts: newStatus === 'active' ? 0 : e.failedLoginAttempts } : e
+                e.id === entry.id ? { ...e, status: 'active', failedLoginAttempts: 0 } : e
             ));
         } catch (error) {
-            console.error('Error updating account status:', error);
+            console.error('Error unblocking account:', error);
             toast({
-                title: 'Update Failed',
-                description: 'Failed to update account status. Please try again.',
+                title: 'Unblock Failed',
+                description: 'Failed to unblock account. Please try again.',
                 variant: 'destructive',
             });
         } finally {
@@ -156,7 +158,7 @@ const SecurityManagement = () => {
                                     <Button
                                         variant="default"
                                         className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-6 shadow-lg shadow-green-600/20 w-full md:w-auto"
-                                        onClick={() => handleToggleStatus(entry)}
+                                        onClick={() => handleUnblock(entry)}
                                         disabled={isUpdating === entry.id}
                                     >
                                         {isUpdating === entry.id ? (
@@ -228,19 +230,21 @@ const SecurityManagement = () => {
                                             )}
                                         </td>
                                         <td className="p-4 text-right">
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                className={`${entry.status === 'blocked' ? 'text-green-600 hover:text-green-700 hover:bg-green-50' : 'text-red-600 hover:text-red-700 hover:bg-red-50'} font-semibold`}
-                                                onClick={() => handleToggleStatus(entry)}
-                                                disabled={isUpdating === entry.id}
-                                            >
-                                                {entry.status === 'blocked' ? (
-                                                    <><Unlock className="h-4 w-4 mr-2" /> Unblock</>
-                                                ) : (
-                                                    <><UserX className="h-4 w-4 mr-2" /> Block</>
-                                                )}
-                                            </Button>
+                                            {entry.status === 'blocked' && (
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 font-semibold"
+                                                    onClick={() => handleUnblock(entry)}
+                                                    disabled={isUpdating === entry.id}
+                                                >
+                                                    {isUpdating === entry.id ? (
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+                                                    ) : (
+                                                        <><Unlock className="h-4 w-4 mr-2" /> Unblock</>
+                                                    )}
+                                                </Button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

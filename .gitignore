@@ -56,6 +56,6 @@ tmp/
 temp/
 
 # Documentation files
-README.md
-**/README.md
-*.md
+# Allow markdown files so guides are visible in repo
+# README.md
+# **/README.md

@@ -38,20 +38,24 @@ const Staff = () => {
       <main className="container mx-auto px-4 py-8">
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Manage your team</CardTitle>
+            <CardTitle className="text-blue-900 font-bold">Manage your team</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={setTab} className="w-full">
               <TabsList className="mb-6 grid grid-cols-2 gap-3 w-full bg-transparent p-0">
                 <TabsTrigger
                   value="list"
-                  className="w-full h-12 text-base rounded-xl border border-gray-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                  className="w-full h-12 text-base rounded-xl border transition-all duration-200 
+                    data-[state=inactive]:tab-unselected
+                    data-[state=active]:tab-selected"
                 >
                   Existing Staff
                 </TabsTrigger>
                 <TabsTrigger
                   value="add"
-                  className="w-full h-12 text-base rounded-xl border border-gray-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary"
+                  className="w-full h-12 text-base rounded-xl border transition-all duration-200 
+                    data-[state=inactive]:tab-unselected
+                    data-[state=active]:tab-selected"
                 >
                   Add Staff
                 </TabsTrigger>

@@ -18,6 +18,8 @@ interface TableInfo {
   panelsBottom?: number;
   panelsCount?: number; // fallback
   panelVoltages?: number[];
+  voltagePerPanel?: number;
+  currentPerPanel?: number;
 }
 
 const EditTable = () => {
@@ -58,8 +60,8 @@ const EditTable = () => {
         setForm({
           serialNumber: table.node || table.serialNumber || '',
           panelCount: String(count),
-          voltagePerPanel: String(details?.voltagePerPanel ?? 20),
-          currentPerPanel: String(details?.currentPerPanel ?? 10),
+          voltagePerPanel: String(table.voltagePerPanel ?? details?.voltagePerPanel ?? 20),
+          currentPerPanel: String(table.currentPerPanel ?? details?.currentPerPanel ?? 10),
         });
       } catch (e) {
         // fallback
@@ -88,7 +90,8 @@ const EditTable = () => {
     return (
       form.serialNumber !== (table.node || table.serialNumber || '') ||
       count !== prevCount ||
-      (plant && (v !== plant.voltagePerPanel || c !== plant.currentPerPanel))
+      v !== (table.voltagePerPanel ?? plant?.voltagePerPanel ?? 20) ||
+      c !== (table.currentPerPanel ?? plant?.currentPerPanel ?? 10)
     );
   };
 
@@ -110,11 +113,9 @@ const EditTable = () => {
     }
 
     try {
-      // If plant settings changed, update them first
-      if (plant && (v !== plant.voltagePerPanel || c !== plant.currentPerPanel)) {
-        await updatePlantSettings(user.companyId, v, c);
-      }
-      await updateTableInPlant(user.companyId, table.id, count, form.serialNumber.trim());
+      // Update the specific table only
+      const tableId = table.node || table.id || table.serialNumber;
+      await updateTableInPlant(user.companyId, tableId, count, form.serialNumber.trim(), v, c);
       toast({ title: 'Saved', description: `${form.serialNumber} updated with ${count} panels` });
       navigate('/plant-admin-dashboard/infrastructure');
     } catch (err) {
@@ -155,21 +156,34 @@ const EditTable = () => {
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="serialNumber">Node ID</Label>
-                <Input id="serialNumber" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} />
+                <Input id="serialNumber" value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className="field-light-blue" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="panelCount">Number of Panels (0-20)</Label>
-                <Input type="number" min="0" max="20" id="panelCount" value={form.panelCount} onChange={(e) => setForm({ ...form, panelCount: e.target.value })} />
+                <Input
+                  type="number"
+                  min="0"
+                  max="25"
+                  id="panelCount"
+                  value={form.panelCount}
+                  onChange={(e) => setForm({ ...form, panelCount: e.target.value })}
+                  className={`field-light-blue ${parseInt(form.panelCount) > 20 ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                />
+                {parseInt(form.panelCount) > 20 && (
+                  <p className="text-sm font-semibold text-red-600 animate-pulse">
+                    ⚠️ Max panel count exceeded! Limit is 20.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="voltagePerPanel">Voltage per Panel (V)</Label>
-                  <Input id="voltagePerPanel" value={form.voltagePerPanel} onChange={(e) => setForm({ ...form, voltagePerPanel: e.target.value })} />
+                  <Input id="voltagePerPanel" value={form.voltagePerPanel} onChange={(e) => setForm({ ...form, voltagePerPanel: e.target.value })} className="field-light-blue" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currentPerPanel">Current per Panel (A)</Label>
-                  <Input id="currentPerPanel" value={form.currentPerPanel} onChange={(e) => setForm({ ...form, currentPerPanel: e.target.value })} />
+                  <Input id="currentPerPanel" value={form.currentPerPanel} onChange={(e) => setForm({ ...form, currentPerPanel: e.target.value })} className="field-light-blue" />
                 </div>
               </div>
 
@@ -195,7 +209,11 @@ const EditTable = () => {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="submit" disabled={!hasChanges()} className={`flex-1 ${!hasChanges() ? 'bg-gray-400 cursor-not-allowed' : ''}`}>
+                <Button
+                  type="submit"
+                  disabled={!hasChanges() || parseInt(form.panelCount) > 20}
+                  className={`flex-1 ${(!hasChanges() || parseInt(form.panelCount) > 20) ? 'bg-gray-400 cursor-not-allowed opacity-50' : 'gradient-primary'}`}
+                >
                   <Save className="mr-2 h-4 w-4" /> Save Changes
                 </Button>
                 <Button type="button" variant="outline" className="flex-1" onClick={() => navigate('/plant-admin-dashboard/infrastructure')}>

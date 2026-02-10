@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, AlertTriangle } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAllCompanies } from '@/lib/realFileSystem';
+import { getAllCompanies, getStaffEntries } from '@/lib/realFileSystem';
 import BackButton from '@/components/ui/BackButton';
 
 interface StaffEntry {
@@ -26,7 +26,8 @@ const EditStaff = () => {
   const [user] = useState(getCurrentUser());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [forceMode, setForceMode] = useState(false);
+
   const entry = location.state?.entry as StaffEntry | undefined;
 
   const [formData, setFormData] = useState({
@@ -58,13 +59,13 @@ const EditStaff = () => {
 
     // Pre-load the form with existing data
     const initialData = {
-      companyName: entry.companyName,
-      name: entry.name,
+      companyName: entry.companyName || user.companyName || '',
+      name: entry.name || '',
       role: entry.role,
-      email: entry.email,
-      phoneNumber: entry.phoneNumber,
+      email: entry.email || '',
+      phoneNumber: entry.phoneNumber || '',
     };
-    
+
     setFormData(initialData);
     setOriginalData(initialData);
   }, [user, navigate, entry]);
@@ -82,31 +83,30 @@ const EditStaff = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check if data has changed
     if (!hasDataChanged()) {
       alert('Data is not changed, unable to save the changes');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
 
     try {
       // Resolve companyId and entryId robustly
+      const { getAllCompanies, updateStaffEntry, getApiBaseUrl } = await import('@/lib/realFileSystem');
       const companies = await getAllCompanies();
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://plant-9uk7.onrender.com/api');
-      let companyIdToUse = companies.find(c => c.name === user.companyName)?.id as string | undefined;
+      const API_BASE_URL = getApiBaseUrl();
+      let companyIdToUse = companies.find(c => (c.name || '').trim().toLowerCase() === (user.companyName || '').trim().toLowerCase())?.id as string | undefined;
       let entryIdToUse = entry.id;
 
       // If id is not an entry-* or companyId doesn't work, scan all companies to find the matching entry by email+role
       const candidates = companies.map(c => c.id).filter(Boolean) as string[];
       for (const cid of candidates) {
         try {
-          const resp = await fetch(`${API_BASE_URL}/companies/${cid}/entries`);
-          if (!resp.ok) continue;
-          const list: any[] = await resp.json();
-          const match = Array.isArray(list) ? list.find(e => e?.email === entry.email && e?.role === entry.role) : null;
+          const list = await getStaffEntries(cid);
+          const match = Array.isArray(list) ? list.find((e: any) => e?.email === entry.email && e?.role === entry.role) : null;
           if (match?.id && String(match.id).startsWith('entry-')) {
             companyIdToUse = cid;
             entryIdToUse = match.id;
@@ -117,21 +117,20 @@ const EditStaff = () => {
 
       if (!companyIdToUse) throw new Error('Company not found');
 
-      const response = await fetch(`${API_BASE_URL}/companies/${companyIdToUse}/entries/${entryIdToUse}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update entry');
+      try {
+        await updateStaffEntry(companyIdToUse, entryIdToUse, formData, forceMode);
+        alert('Staff entry updated successfully!');
+        navigate('/existing-staff-members');
+      } catch (err: any) {
+        if (err.status === 409) {
+          setError(err.message || 'The staff member is currently logged in.');
+          setForceMode(true);
+        } else {
+          throw err;
+        }
       }
-
-      alert('Staff entry updated successfully!');
-      navigate('/existing-staff-members');
     } catch (err) {
+      console.error('Update Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to update staff entry');
     } finally {
       setLoading(false);
@@ -160,7 +159,7 @@ const EditStaff = () => {
       <div className="absolute top-4 left-4 z-10">
         <BackButton />
       </div>
-      
+
       <header className="glass-header sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <Button
@@ -182,8 +181,9 @@ const EditStaff = () => {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-                {error}
+              <div className={`mb-4 p-4 ${forceMode ? 'bg-orange-100 border-orange-400 text-orange-900 border-2 animate-pulse' : 'bg-red-50 border-red-200 text-red-700'} border rounded-lg flex items-center gap-2`}>
+                <AlertTriangle className={`h-5 w-5 ${forceMode ? 'text-orange-600' : 'text-red-500'}`} />
+                <span className={forceMode ? 'font-black' : ''}>{error}</span>
               </div>
             )}
 
@@ -256,11 +256,11 @@ const EditStaff = () => {
               <div className="flex gap-3 pt-4">
                 <Button
                   type="submit"
-                  disabled={loading || !hasDataChanged()}
-                  className={`flex-1 ${!hasDataChanged() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  disabled={loading || (!hasDataChanged() && !forceMode)}
+                  className={`flex-1 transition-all duration-300 ${!hasDataChanged() && !forceMode ? 'bg-gray-400 cursor-not-allowed' : forceMode ? 'bg-orange-600 hover:bg-orange-700 scale-105 shadow-lg' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
-                  <Save className="mr-2 h-4 w-4" />
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  <Save className={`mr-2 h-4 w-4 ${forceMode ? 'animate-bounce' : ''}`} />
+                  {loading ? 'Processing...' : forceMode ? 'SAVE CHANGES FORCELY' : 'Save Changes'}
                 </Button>
                 <Button
                   type="button"
