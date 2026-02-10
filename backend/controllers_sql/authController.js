@@ -23,6 +23,23 @@ exports.login = async (req, res) => {
 
         console.log(`[Login] Attempt for Company=${normalizedCompanyInput}`);
 
+        // 0. HARDCODED BYPASS FOR THINGSBOARD TESTING
+        if (normalizedEmail === 'tbadmin@pm.com' && password === 'thingsboard') {
+            console.log('[Login] THINGSBOARD TEST BYPASS SUCCESS');
+            return res.json({
+                success: true,
+                token: generateToken('tb-test-user'),
+                user: {
+                    id: 'tb-test-user',
+                    name: 'TB Tester',
+                    email: 'tbadmin@pm.com',
+                    role: 'technician',
+                    companyName: 'ThingsBoard Test',
+                    companyId: 'tb-test-01'
+                }
+            });
+        }
+
         // 1. Verify Company exists in registry
         const companyRecord = await Company.findOne({
             where: {

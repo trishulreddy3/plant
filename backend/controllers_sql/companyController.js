@@ -115,7 +115,90 @@ exports.createCompany = async (req, res) => {
 
 exports.getCompanyById = async (req, res) => {
     try {
-        const company = await Company.findByPk(req.params.id, {
+        const { id } = req.params;
+
+        // --- HARDCODED BYPASS FOR TB TESTING ---
+        if (id === 'tb-test-01') {
+            const company = {
+                companyId: 'tb-test-01',
+                companyName: 'ThingsBoard Test',
+                voltagePerPanel: 20,
+                currentPerPanel: 10,
+                dataSource: 'thingsboard',
+                externalDeviceId: '03672710-fc15-11f0-89b7-3d7c3589f5d6'
+            };
+
+            const { thingsboardSequelize } = require('../db/thingsboard');
+            const { QueryTypes } = require('sequelize');
+
+            const tbQuery = `
+                SELECT
+                    ts.ts AS timestamp_ms,
+                    kd.key AS key_name,
+                    ts.str_v AS value
+                FROM ts_kv ts
+                JOIN device d ON ts.entity_id = d.id
+                JOIN key_dictionary kd ON ts.key = kd.key_id
+                WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+                  AND kd.key LIKE 'fault_n%'
+                  AND ts.ts = (
+                      SELECT MAX(ts2.ts)
+                      FROM ts_kv ts2
+                      WHERE ts2.entity_id = d.id
+                  )
+                ORDER BY kd.key;
+            `;
+
+            const tbResults = await thingsboardSequelize.query(tbQuery, {
+                type: QueryTypes.SELECT
+            });
+
+            const liveData = tbResults.map(row => {
+                const nodeData = JSON.parse(row.value || '{}');
+                const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+                const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+                const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+                const panelVoltages = [];
+                const panelStatuses = [];
+                const panelCurrents = [];
+
+                for (let i = 1; i <= 20; i++) {
+                    const p = nodeData[`p${i}`];
+                    const s = p ? p.s : -1;
+                    let status = 'good';
+                    if (s === 2) status = 'bad';
+                    else if (s === 1 || s === -1) status = 'moderate';
+
+                    panelStatuses.push(status);
+                    panelVoltages.push(status === 'good' ? 20 : status === 'bad' ? 0 : 14);
+                    panelCurrents.push(status === 'good' ? 10 : status === 'bad' ? 0 : 7);
+                }
+
+                return {
+                    node: nodeName,
+                    id: nodeName,
+                    serialNumber: nodeName,
+                    panelVoltages,
+                    panelStatuses,
+                    panelCurrents,
+                    voltagePerPanel: 20,
+                    currentPerPanel: 10,
+                    current: 10,
+                    time: new Date(parseInt(row.timestamp_ms)).toISOString(),
+                    updatedAt: new Date(parseInt(row.timestamp_ms)).toISOString(),
+                    panelCount: 20
+                };
+            });
+
+            return res.json({
+                ...company,
+                live_data: liveData,
+                tables: liveData
+            });
+        }
+
+        const company = await Company.findByPk(id, {
             include: [
                 // We DON'T include LiveData here because it points to generic table
                 { model: Ticket }

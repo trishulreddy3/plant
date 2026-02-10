@@ -441,6 +441,72 @@ app.delete('/api/companies/:companyId/entries/:entryId', protect, authorize('sup
 app.get('/api/companies/:companyId/live-data', async (req, res) => {
   try {
     const { companyId } = req.params;
+
+    // --- HARDCODED BYPASS FOR TB TESTING ---
+    if (companyId === 'tb-test-01') {
+      const { thingsboardSequelize } = require('./db/thingsboard');
+      const query = `
+            SELECT
+                ts.ts AS timestamp_ms,
+                kd.key AS key_name,
+                ts.str_v AS value
+            FROM ts_kv ts
+            JOIN device d ON ts.entity_id = d.id
+            JOIN key_dictionary kd ON ts.key = kd.key_id
+            WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+              AND kd.key LIKE 'fault_n%'
+              AND ts.ts = (
+                  SELECT MAX(ts2.ts)
+                  FROM ts_kv ts2
+                  WHERE ts2.entity_id = d.id
+              )
+            ORDER BY kd.key;
+        `;
+
+      const results = await thingsboardSequelize.query(query, {
+        type: Sequelize.QueryTypes.SELECT
+      });
+
+      const mapped = results.map(row => {
+        const nodeData = JSON.parse(row.value || '{}');
+        const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+        const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+        const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+        const panelVoltages = [];
+        const panelStatuses = [];
+        const panelCurrents = [];
+
+        for (let i = 1; i <= 20; i++) {
+          const p = nodeData[`p${i}`];
+          const s = p ? p.s : -1;
+          let status = 'good';
+          if (s === 2) status = 'bad';
+          else if (s === 1 || s === -1) status = 'moderate';
+
+          panelStatuses.push(status);
+          panelVoltages.push(status === 'good' ? 20 : status === 'bad' ? 0 : 14);
+          panelCurrents.push(status === 'good' ? 10 : status === 'bad' ? 0 : 7);
+        }
+
+        return {
+          node: nodeName,
+          id: nodeName,
+          serialNumber: nodeName,
+          panelVoltages,
+          panelStatuses,
+          panelCurrents,
+          voltagePerPanel: 20,
+          currentPerPanel: 10,
+          current: 10,
+          panelCount: 20,
+          updatedAt: new Date(parseInt(row.timestamp_ms))
+        };
+      });
+
+      return res.json(mapped);
+    }
+
     const company = await Company.findByPk(companyId);
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
@@ -1056,6 +1122,56 @@ app.put('/api/companies/:companyId/resolve-panel', async (req, res) => {
 app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
   try {
     const { companyId } = req.params;
+
+    // --- HARDCODED BYPASS FOR TB TESTING ---
+    if (companyId === 'tb-test-01') {
+      const { thingsboardSequelize } = require('./db/thingsboard');
+      const query = `
+            SELECT
+                ts.ts AS timestamp_ms,
+                kd.key AS key_name,
+                ts.str_v AS value
+            FROM ts_kv ts
+            JOIN device d ON ts.entity_id = d.id
+            JOIN key_dictionary kd ON ts.key = kd.key_id
+            WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+              AND kd.key LIKE 'fault_n%'
+              AND ts.ts = (
+                  SELECT MAX(ts2.ts)
+                  FROM ts_kv ts2
+                  WHERE ts2.entity_id = d.id
+              )
+            ORDER BY kd.key;
+        `;
+
+      const results = await thingsboardSequelize.query(query, {
+        type: Sequelize.QueryTypes.SELECT
+      });
+
+      const snapshot = results.map(row => {
+        const nodeData = JSON.parse(row.value || '{}');
+        const status = {};
+        // Map p1-p20 to P1-P20
+        for (let i = 1; i <= 20; i++) {
+          const p = nodeData[`p${i}`];
+          const s = p ? p.s : -1;
+          status[`P${i}`] = s === 0 ? 'good' : s === 2 ? 'bad' : 'moderate';
+        }
+
+        const nodeMatch = row.key_name.match(/fault_n(\d+)/);
+        const nodeNum = nodeMatch ? nodeMatch[1] : '001';
+        const nodeName = `Node-${nodeNum.padStart(3, '0')}`;
+
+        return {
+          node: nodeName,
+          timestamp: new Date(parseInt(row.timestamp_ms)),
+          ...status
+        };
+      });
+
+      return res.json(snapshot);
+    }
+
     const company = await Company.findByPk(companyId);
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
