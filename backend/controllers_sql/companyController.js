@@ -8,7 +8,20 @@ exports.getCompanies = async (req, res) => {
                 { model: User, attributes: ['email', 'role'] } // Just valid check
             ]
         });
-        res.json(companies);
+
+        // --- BYPASS: Add TB Test Company to list ---
+        const tbCompany = {
+            id: 'tb-test-01',
+            companyId: 'tb-test-01',
+            name: 'ThingsBoard Test',
+            companyName: 'ThingsBoard Test',
+            voltagePerPanel: 20,
+            currentPerPanel: 10,
+            plantPowerKW: 100,
+            totalTables: 20
+        };
+
+        res.json([...companies, tbCompany]);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Server error' });
@@ -152,6 +165,8 @@ exports.getCompanyById = async (req, res) => {
             const tbResults = await thingsboardSequelize.query(tbQuery, {
                 type: QueryTypes.SELECT
             });
+
+            console.log(`[TB BYPASS] Fetched ${tbResults.length} records from ThingsBoard`);
 
             const liveData = tbResults.map(row => {
                 const nodeData = JSON.parse(row.value || '{}');
