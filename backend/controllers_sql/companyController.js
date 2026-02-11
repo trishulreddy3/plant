@@ -138,7 +138,7 @@ exports.getCompanyById = async (req, res) => {
                 voltagePerPanel: 20,
                 currentPerPanel: 10,
                 dataSource: 'thingsboard',
-                externalDeviceId: '03672710-fc15-11f0-89b7-3d7c3589f5d6'
+                externalDeviceId: 'bd58ccd0-040f-11f1-be02-1767c8da46db'
             };
 
             const { thingsboardSequelize } = require('../db/thingsboard');
@@ -152,7 +152,7 @@ exports.getCompanyById = async (req, res) => {
                 FROM ts_kv ts
                 JOIN device d ON ts.entity_id = d.id
                 JOIN key_dictionary kd ON ts.key = kd.key_id
-                WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+                WHERE d.id = 'bd58ccd0-040f-11f1-be02-1767c8da46db'::uuid
                   AND kd.key LIKE 'fault_n%'
                   AND ts.ts = (
                       SELECT MAX(ts2.ts)
@@ -180,10 +180,16 @@ exports.getCompanyById = async (req, res) => {
 
                 for (let i = 1; i <= 20; i++) {
                     const p = nodeData[`p${i}`];
+                    // New format: p is likely { s: 0, t: "..." }
+                    // Status: 0=Good, 1=Moderate, 2=Bad, -1=Unknown
+                    // Default to 'good' if s is 0 or missing (though missing usually means offline/unknown)
+
                     const s = p ? p.s : -1;
+
                     let status = 'good';
                     if (s === 2) status = 'bad';
                     else if (s === 1 || s === -1) status = 'moderate';
+                    // if s === 0, it stays 'good'
 
                     panelStatuses.push(status);
                     panelVoltages.push(status === 'good' ? 20 : status === 'bad' ? 0 : 14);

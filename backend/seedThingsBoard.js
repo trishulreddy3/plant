@@ -7,7 +7,7 @@ const seedThingsBoardCompany = async () => {
         const companyName = 'ThingsBoard Test Company';
         const adminEmail = 'tbadmin@pm.com';
         const adminPassword = 'thingsboard';
-        const deviceId = '03672710-fc15-11f0-89b7-3d7c3589f5d6';
+        const deviceId = 'bd58ccd0-040f-11f1-be02-1767c8da46db';
 
         // Check if exists
         const existing = await Company.findByPk(companyId);

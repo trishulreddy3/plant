@@ -453,7 +453,7 @@ app.get('/api/companies/:companyId/live-data', async (req, res) => {
             FROM ts_kv ts
             JOIN device d ON ts.entity_id = d.id
             JOIN key_dictionary kd ON ts.key = kd.key_id
-            WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+            WHERE d.id = 'bd58ccd0-040f-11f1-be02-1767c8da46db'::uuid
               AND kd.key LIKE 'fault_n%'
               AND ts.ts = (
                   SELECT MAX(ts2.ts)
@@ -1134,7 +1134,7 @@ app.get('/api/companies/:companyId/node-fault-status', async (req, res) => {
             FROM ts_kv ts
             JOIN device d ON ts.entity_id = d.id
             JOIN key_dictionary kd ON ts.key = kd.key_id
-            WHERE d.id = '03672710-fc15-11f0-89b7-3d7c3589f5d6'::uuid
+            WHERE d.id = 'bd58ccd0-040f-11f1-be02-1767c8da46db'::uuid
               AND kd.key LIKE 'fault_n%'
               AND ts.ts = (
                   SELECT MAX(ts2.ts)

@@ -20,7 +20,7 @@ const testTB = async () => {
         await thingsboardSequelize.authenticate();
         console.log('✅ Connection Successful!');
 
-        const deviceId = '03672710-fc15-11f0-89b7-3d7c3589f5d6';
+        const deviceId = 'bd58ccd0-040f-11f1-be02-1767c8da46db';
 
         // 1. Get Latest Fault Table (Your Query)
         console.log('\n--- FETCHING LATEST FAULTS ---');

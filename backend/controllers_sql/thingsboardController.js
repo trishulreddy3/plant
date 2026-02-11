@@ -6,7 +6,7 @@ const { QueryTypes } = require('sequelize');
  */
 exports.getLatestFaults = async (req, res) => {
     try {
-        const { deviceId } = req.params; // Expecting '03672710-fc15-11f0-89b7-3d7c3589f5d6'
+        const { deviceId } = req.params; // Expecting 'bd58ccd0-040f-11f1-be02-1767c8da46db'
 
         const query = `
             SELECT
