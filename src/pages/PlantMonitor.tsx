@@ -35,9 +35,7 @@ const PlantMonitor = () => {
 
   return (
     <div className="relative">
-      <div className="absolute top-4 left-4 z-10">
-        <BackButton />
-      </div>
+
       <UnifiedViewTables
         userRole="plant_admin"
         companyId={user.companyId}

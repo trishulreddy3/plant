@@ -133,6 +133,11 @@ const initializeTenantSchema = async (companyName) => {
             };
         }
 
+        faultFields.faultDuration = {
+            type: DataTypes.JSONB,
+            defaultValue: {} // { "p1": "timestamp", ... }
+        };
+
         models.FaultTable = sequelize.define(faultTableModelName, faultFields, {
             tableName: 'fault_tables',
             schema: schemaName,

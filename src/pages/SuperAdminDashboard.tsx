@@ -223,7 +223,8 @@ const SuperAdminDashboard = () => {
         .glassmorphism-card {
           box-sizing: border-box;
           width: 100%;
-          height: 254px;
+          min-height: 254px;
+          height: auto;
           background: rgba(217, 217, 217, 0.58);
           border: 1px solid white;
           box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
@@ -253,20 +254,21 @@ const SuperAdminDashboard = () => {
           <BackButton />
         </div>
         <header className="glass-header sticky top-0 z-10">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div>
-              <GradientHeading size="lg">Super Admin Dashboard</GradientHeading>
-              <p className="text-sm text-muted-foreground">Microsyslogic - Monitor & Manage</p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-2 h-2 rounded-full ${serverStatus ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-xs text-muted-foreground">
-                  {serverStatus ? 'File System Server: Online' : 'File System Server: Offline (using localStorage)'}
+          <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <GradientHeading size="md" className="sm:size-lg truncate">Super Admin Dashboard</GradientHeading>
+              <p className="text-[10px] sm:text-sm text-muted-foreground truncate">Microsyslogic SCADA Solutions</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className={`w-1.5 h-1.5 rounded-full ${serverStatus ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-[8px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                  {serverStatus ? 'Server: Online' : 'Server: Offline'}
                 </span>
               </div>
             </div>
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
+            <Button onClick={handleLogout} variant="outline" className="h-9 sm:h-10 text-xs sm:text-sm px-2 sm:px-4 shrink-0">
+              <LogOut className="sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
+              <span className="sm:hidden text-[10px]">Exit</span>
             </Button>
           </div>
         </header>

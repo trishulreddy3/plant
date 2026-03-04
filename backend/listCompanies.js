@@ -15,7 +15,7 @@ const list = async () => {
         if (err.parent) {
             console.error('PARENT ERROR:', err.parent.message);
         }
-    } finally {
+ } finally {
         process.exit();
     }
 };

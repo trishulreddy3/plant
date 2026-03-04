@@ -105,20 +105,21 @@ const PlantAdminDashboard = () => {
       </div>
       <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-20 shadow-sm">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
             <div className="min-w-0 flex-1">
-              <GradientHeading size="lg">{formatCompanyTitle(user.companyName)} solar analysis</GradientHeading>
-              <p className="mt-0.5 text-xs sm:text-sm text-gray-500 font-medium">{formatRole(user.role)}</p>
+              <GradientHeading size="md" className="sm:size-lg truncate">{formatCompanyTitle(user.companyName)} solar analysis</GradientHeading>
+              <p className="mt-0.5 text-[10px] sm:text-sm text-gray-500 font-medium">{formatRole(user.role)}</p>
             </div>
-            <div className="shrink-0 inline-flex items-center gap-2">
-              <Button onClick={handleSyncCompany} className="btn-outline-modern px-3 sm:px-4 py-2 whitespace-nowrap">
-                <RefreshCw className="mr-2 h-4 w-4" />
+            <div className="shrink-0 inline-flex items-center gap-1.5 sm:gap-2">
+              <Button onClick={handleSyncCompany} className="btn-outline-modern px-2 sm:px-4 py-2 whitespace-nowrap h-9 sm:h-10 text-xs sm:text-sm">
+                <RefreshCw className="sm:mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Sync Company</span>
                 <span className="sm:hidden">Sync</span>
               </Button>
-              <Button onClick={handleLogout} className="btn-outline-modern px-3 sm:px-4 py-2 whitespace-nowrap">
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+              <Button onClick={handleLogout} className="btn-outline-modern px-2 sm:px-4 py-2 whitespace-nowrap h-9 sm:h-10 text-xs sm:text-sm">
+                <LogOut className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">Exit</span>
               </Button>
             </div>
           </div>

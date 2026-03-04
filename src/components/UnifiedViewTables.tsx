@@ -57,7 +57,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     position: string;
     panelCount: number;
   }>({ tableId: '', position: 'Main', panelCount: 1 });
-  const [faultPanelType, setFaultPanelType] = useState<'all' | 'fault' | 'repairing'>('all');
+
   const [propagateSeries, setPropagateSeries] = useState<boolean>(false);
   const [showMakeFault, setShowMakeFault] = useState(false);
   const [mfTableId, setMfTableId] = useState<string>('');
@@ -119,6 +119,14 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     }
   }, [panels]);
 
+  // Auto-select first table for Make Fault defaults if none selected (Fixed: Moved out of data polling interval)
+  useEffect(() => {
+    setMfTableId(prev => {
+      if (!prev && tables.length > 0) return tables[0].id;
+      return prev;
+    });
+  }, [tables]);
+
   // Sync voltage with current defaults
   useEffect(() => {
     if (mfCurrent && expectedCurrent > 0 && expectedVoltage > 0) {
@@ -178,10 +186,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
           });
           setTables(tableList);
 
-          // Pre-select table for Make Fault if not already set
-          if (!mfTableId && tableList.length > 0) {
-            setMfTableId(tableList[0].id);
-          }
+          setTables(tableList);
 
           // Fetch Node Fault Status for the table view
           try {
@@ -437,6 +442,32 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
   // Series summary
   const seriesSummary = { culprits: 0, affected: 0 };
+
+  const formatPanelList = (names: string[]) => {
+    const nums = names.map(n => parseInt(n.replace(/\D/g, ''), 10)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    if (nums.length === 0) return names.join(', '); // Fallback
+
+    const ranges: string[] = [];
+    let start = nums[0];
+    let prev = nums[0];
+
+    const flush = () => {
+      ranges.push(start === prev ? `P${start}` : `P${start}-P${prev}`);
+    };
+
+    for (let i = 1; i < nums.length; i++) {
+      if (nums[i] === prev + 1) {
+        prev = nums[i];
+      } else {
+        flush();
+        start = nums[i];
+        prev = nums[i];
+      }
+    }
+    flush();
+    return ranges.join(', ');
+  };
+
   const priorityToFix = (() => {
     if (faultPanels.length > 0) {
       // Find table with most bad panels
@@ -447,8 +478,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
       });
       // Sort by count descending
       const topEntry = Object.entries(tableData).sort((a, b) => b[1].length - a[1].length)[0];
-      const tableId = topEntry[0];
-      const panelList = topEntry[1].join(', ');
+      let tableId = topEntry[0];
+      if (/node/i.test(tableId)) tableId = tableId.replace(/node/i, 'Table');
+
+      const panelList = formatPanelList(topEntry[1]);
       return { label: `CRITICAL: Fix ${tableId} (${panelList}) immediately` };
     }
     if (repairingPanels.length > 0) {
@@ -458,8 +491,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
         tableData[p.tableId].push(p.name);
       });
       const topEntry = Object.entries(tableData).sort((a, b) => b[1].length - a[1].length)[0];
-      const tableId = topEntry[0];
-      const panelList = topEntry[1].join(', ');
+      let tableId = topEntry[0];
+      if (/node/i.test(tableId)) tableId = tableId.replace(/node/i, 'Table');
+
+      const panelList = formatPanelList(topEntry[1]);
       return { label: `MAINTENANCE: Check ${tableId} (${panelList})` };
     }
     return null;
@@ -522,51 +557,46 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
     <div className="h-full flex flex-col bg-gradient-to-br from-primary/5 via-background to-secondary/5 overflow-hidden">
       {/* Header - conditionally hidden */}
       {!hideHeader && (
-        <header className="glass-header sticky top-0 z-10">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+        <header className="glass-header sticky top-0 z-10 w-full">
+          <div className="container mx-auto px-4 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-4 sm:gap-6">
+              <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
                 {showBackButton && (
                   <Button
                     variant="ghost"
                     onClick={onBackClick}
-                    className="mb-2"
+                    className="shrink-0 p-2 sm:px-4 sm:py-2"
                   >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    {backButtonText}
+                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">{backButtonText}</span>
                   </Button>
                 )}
-                <div>
-                  <h1 className="text-2xl font-bold text-primary">
-                    Solar Panel Monitoring - {user.companyName || 'Plant'}
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-2xl font-bold text-primary truncate">
+                    Solar Monitoring - {user.companyName || 'Plant'}
                   </h1>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-sm text-muted-foreground whitespace-nowrap">
-                      {userRole === 'super_admin' ? 'Super Admin View' :
-                        userRole === 'plant_admin' ? 'Plant Admin Dashboard' :
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
+                    <p className="text-[10px] sm:text-sm text-muted-foreground whitespace-nowrap">
+                      {userRole === 'super_admin' ? 'Super Admin' :
+                        userRole === 'plant_admin' ? 'Plant Admin' :
                           'User Dashboard'}
                     </p>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 border border-green-100">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-50 border border-green-100">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-[10px] font-medium text-green-700 uppercase tracking-wider">Live Updates: {lastRefreshed}</span>
+                      <span className="text-[8px] sm:text-[10px] font-medium text-green-700 uppercase tracking-tighter sm:tracking-wider">Live: {lastRefreshed}</span>
                     </div>
                   </div>
-                  {userRole && userRole !== 'super_admin' && userRole !== 'plant_admin' && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Role: <span className="font-semibold capitalize">{userRole}</span>
-                    </p>
-                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-center">
                 {LAZY_MODE && (
-                  <Button variant="secondary" onClick={() => setDataLoaded(true)}>
-                    {dataLoaded ? 'Refresh' : 'Load'} Plant
+                  <Button size="sm" variant="secondary" onClick={() => setDataLoaded(true)} className="h-8 sm:h-10 text-xs sm:text-sm">
+                    {dataLoaded ? 'Refresh' : 'Load'}
                   </Button>
                 )}
-                <Button onClick={handleLogout} variant="destructive">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                <Button onClick={handleLogout} variant="destructive" className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-4">
+                  <LogOut className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
               </div>
             </div>
@@ -574,10 +604,10 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
         </header>
       )}
 
-      <main className="container mx-auto px-4 py-2 flex-1 min-h-0 overflow-hidden">
-        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
-          {/* Left Column: Panels (Independently Scrollable) */}
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+      <main className="container mx-auto px-2 sm:px-4 py-2 flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
+        <div className="flex flex-col md:flex-row gap-4 sm:gap-6 h-auto md:h-full min-h-0">
+          {/* Left Column: Panels (Independently Scrollable on Desktop) - Bottom on Mobile */}
+          <div className="flex-1 md:overflow-y-auto pr-0 md:pr-2 custom-scrollbar min-h-0 order-2 md:order-1">
             <div className="flex flex-col gap-6 pb-20">
 
 
@@ -598,7 +628,7 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
               {/* Tables and Panels - Compact Grid */}
               {tables.length > 0 ? (
-                <div className="flex-1 overflow-auto space-y-1 pr-1 custom-scrollbar">
+                <div className="lg:flex-1 lg:overflow-auto space-y-1 pr-1 custom-scrollbar">
                   {tables.map((table) => {
                     const tableId = table.id || table.node || table.serialNumber;
                     const tablePanels = panels.filter(p => p.tableId === tableId);
@@ -660,8 +690,8 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Sidebar (Fixed / No Scroll) */}
-          <div className={`w-full lg:w-[320px] shrink-0 h-full flex flex-col gap-3 pb-4 lg:pb-0 overflow-hidden`}>
+          {/* Right Column: Sidebar (Fixed / No Scroll on Desktop) - Top on Mobile */}
+          <div className={`w-full md:w-[320px] shrink-0 md:h-full flex flex-col gap-3 pb-4 md:pb-0 order-1 md:order-2`}>
             {isTechnician && (
               <Card className="glass-card shadow-sm border-slate-100 bg-slate-50/50">
                 <CardContent className="p-2 space-y-2">
@@ -679,69 +709,80 @@ const UnifiedViewTables: React.FC<UnifiedViewTablesProps> = ({
 
 
 
-            {/* Fault Panels with Dropdown - technicians only */}
+            {/* Bad Panels Only - technicians only */}
             {isTechnician && (
               <Card className="glass-card shadow-sm border-slate-100">
                 <CardHeader className="p-2 pb-1.5 flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
                     <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                    Panel Status
+                    Bad Panels
                   </CardTitle>
-                  <Select value={faultPanelType} onValueChange={(value: 'all' | 'fault' | 'repairing') => setFaultPanelType(value)}>
-                    <SelectTrigger className="w-24 h-6 text-[9px] px-1.5 bg-slate-50 border-slate-200">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-[10px]">All ({faultPanels.length + repairingPanels.length})</SelectItem>
-                      <SelectItem value="fault" className="text-[10px]">Fault ({faultPanels.length})</SelectItem>
-                      <SelectItem value="repairing" className="text-[10px]">Rep ({repairingPanels.length})</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </CardHeader>
                 <CardContent className="p-2 pt-0">
                   {(() => {
-                    let panelsToShow: typeof faultPanels = [];
-                    let panelType = '';
+                    // Group bad panels by table
+                    const badPanels = panels.filter(p => p.status === 'bad');
+                    const grouped: Record<string, number[]> = {};
 
-                    if (faultPanelType === 'all') {
-                      panelsToShow = [...faultPanels, ...repairingPanels];
-                      panelType = 'All Faulty';
-                    } else if (faultPanelType === 'fault') {
-                      panelsToShow = faultPanels;
-                      panelType = 'Fault';
-                    } else {
-                      panelsToShow = repairingPanels;
-                      panelType = 'Repairing';
-                    }
+                    badPanels.forEach(p => {
+                      // Resolve display name: Find table by ID (p.tableId)
+                      const table = tables.find(t => t.id === p.tableId);
+                      let tName = table ? (table.node || table.serialNumber || 'TBL') : p.tableId;
 
-                    return panelsToShow.length > 0 ? (
-                      <div className="space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                        {panelsToShow.map((panel) => (
-                          <div
-                            key={panel.id}
-                            className={`flex items-center justify-between p-1.5 rounded border ${panel.status === 'bad'
-                              ? 'bg-red-50/50 border-red-100'
-                              : 'bg-yellow-50/50 border-yellow-100'
-                              }`}
-                          >
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-bold leading-tight truncate">{panel.id}</p>
-                              <p className="text-[8px] text-muted-foreground truncate">
-                                {panel.tableId} • {panel.name}
-                              </p>
-                            </div>
-                            <Badge
-                              variant={panel.status === 'bad' ? 'destructive' : 'secondary'}
-                              className={`text-[8px] h-3.5 px-1 ${panel.status === 'moderate' ? 'bg-yellow-500 text-yellow-900' : ''}`}
-                            >
-                              {panel.status === 'bad' ? 'Fault' : 'Mod'}
-                            </Badge>
+                      // Rename Node -> Table
+                      if (/node/i.test(tName)) {
+                        tName = tName.replace(/node/i, 'Table');
+                      }
+
+                      if (!grouped[tName]) grouped[tName] = [];
+                      const match = p.name.match(/P?(\d+)/);
+                      if (match) {
+                        grouped[tName].push(parseInt(match[1], 10));
+                      }
+                    });
+
+                    // Generate display items
+                    const startItems: string[] = [];
+
+                    Object.keys(grouped).sort().forEach(tName => {
+                      const pNums = grouped[tName].sort((a, b) => a - b);
+                      if (pNums.length === 0) return;
+
+                      let start = pNums[0];
+                      let prev = pNums[0];
+
+                      const flush = (s: number, e: number) => {
+                        if (s === e) {
+                          startItems.push(`${tName}.P${s}`);
+                        } else {
+                          startItems.push(`${tName}.P${s}-p${e}`);
+                        }
+                      };
+
+                      for (let i = 1; i < pNums.length; i++) {
+                        if (pNums[i] === prev + 1) {
+                          prev = pNums[i];
+                        } else {
+                          flush(start, prev);
+                          start = pNums[i];
+                          prev = pNums[i];
+                        }
+                      }
+                      flush(start, prev);
+                    });
+
+                    return startItems.length > 0 ? (
+                      <div className="space-y-1 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                        {startItems.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-1.5 rounded border bg-red-50/50 border-red-100">
+                            <span className="text-[11px] font-bold text-slate-700">{item}</span>
+                            <Badge variant="destructive" className="text-[9px] h-3.5 px-1">Fault</Badge>
                           </div>
                         ))}
                       </div>
                     ) : (
                       <p className="text-[9px] text-muted-foreground text-center py-2 italic">
-                        No {panelType.toLowerCase()} detected
+                        No critical faults detected
                       </p>
                     );
                   })()}

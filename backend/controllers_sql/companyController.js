@@ -319,6 +319,8 @@ exports.getCompanyById = async (req, res) => {
                 const voltages = [];
                 const currents = [];
                 const statuses = [];
+                const durations = [];
+                const existingDurations = faultRow ? faultRow.faultDuration || {} : {};
 
                 const pCount = item.panelCount || 20;
                 for (let i = 1; i <= pCount; i++) {
@@ -326,6 +328,8 @@ exports.getCompanyById = async (req, res) => {
                     currents.push(item[`p${i}c`] || 0);
                     const s = faultRow ? faultRow[`p${i}`] : 'G';
                     statuses.push(s === 'B' ? 'bad' : s === 'M' ? 'moderate' : 'good');
+                    // Add duration timestamp if exists
+                    durations.push(existingDurations[`p${i}`] || null);
                 }
                 return {
                     ...item,
@@ -333,7 +337,8 @@ exports.getCompanyById = async (req, res) => {
                     serialNumber: item.node, // Legacy UI support
                     panelVoltages: voltages,
                     panelCurrents: currents,
-                    panelStatuses: statuses
+                    panelStatuses: statuses,
+                    panelFaultDurations: durations
                 };
             });
 

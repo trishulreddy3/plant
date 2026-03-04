@@ -909,10 +909,11 @@ app.delete('/api/companies/:companyId/tables/:tableId/panels/:panelId', async (r
 });
 
 // Update Panel Data (Current/Voltage) - Main entry for sensor data or manual override
+// Update Panel Data (Current/Voltage) - Main entry for sensor data or manual override
 app.put('/api/companies/:companyId/panels/current', async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { tableId, index, current, voltage } = req.body;
+    const { tableId, index, current, voltage, propagateSeries } = req.body;
     console.log(`[Panels/Current] Request received for company: ${companyId}, table: ${tableId}, index: ${index}`);
 
     const company = await Company.findOne({
@@ -928,23 +929,24 @@ app.put('/api/companies/:companyId/panels/current', async (req, res) => {
     const models = await initializeTenantSchema(company.companyName);
 
     // 1. Update LiveData (Specific Panel Voltage and Current)
-    console.log(`[Panels/Current] Attempting to find node: ${tableId} for company: ${company.companyName}`);
-    const live = await models.LiveData.findOne({ where: { node: tableId } });
+    console.log(`[Panels/Current] Attempting to find node for LiveData: ${tableId}`);
+    let live = await models.LiveData.findOne({ where: { node: tableId } });
     if (!live) {
       return res.status(404).json({ error: `Node '${tableId}' not found in company '${company.companyName}'` });
     }
 
+    // Set Voltage if provided
     if (voltage !== undefined && voltage !== null && voltage !== '') {
       const v = parseFloat(voltage);
       if (!isNaN(v)) live[`p${index + 1}v`] = v;
     }
 
-    const { propagateSeries } = req.body;
+    // Set Current if provided
     if (current !== undefined && current !== null && current !== '') {
       const c = parseFloat(current);
       if (!isNaN(c)) {
         if (propagateSeries) {
-          // Update ALL panels in the string to this current limit
+          // Update ALL panels in the string to this current limit (Series mismatch effect)
           const pCount = live.panelCount || 20;
           for (let i = 1; i <= pCount; i++) {
             live[`p${i}c`] = c;
@@ -956,50 +958,95 @@ app.put('/api/companies/:companyId/panels/current', async (req, res) => {
       }
     }
 
-    // Series Propagation Logic: node current is the MINIMUM of all active panels
+    // Recalculate node current (MIN of all ACTIVE panel currents)
     const panelCount = live.panelCount || 20;
-    let minCurrent = live.currentPerPanel || company.currentPerPanel || 10.0;
+    const cNominal = live.currentPerPanel || company.currentPerPanel || 10.0;
+    const vNominal = live.voltagePerPanel || company.voltagePerPanel || 20.0;
 
+    let minCurrent = cNominal;
     for (let i = 1; i <= panelCount; i++) {
       const pCur = live[`p${i}c`];
-      if (pCur !== undefined && pCur < minCurrent) {
-        minCurrent = pCur;
+      // Treat undefined/null as 0 for safety, though they should be initialized
+      const safeCur = (pCur !== undefined && pCur !== null) ? pCur : 0;
+      if (safeCur < minCurrent) {
+        minCurrent = safeCur;
       }
     }
     live.current = minCurrent;
     await live.save();
 
     // 2. Automatically Update FaultTable for ALL panels based on updated values
-    const fault = await models.FaultTable.findOne({ where: { node: tableId } });
-    if (fault) {
-      const vNominal = live.voltagePerPanel || company.voltagePerPanel || 20.0;
-      const cNominal = live.currentPerPanel || company.currentPerPanel || 10.0;
+    let fault = await models.FaultTable.findOne({ where: { node: tableId } });
 
-      console.log(`[Panels/Current] Updating FaultTable for ${tableId}. Nominal V: ${vNominal}, C: ${cNominal}`);
-      for (let i = 1; i <= panelCount; i++) {
-        const v = live[`p${i}v`];
-        const c = live[`p${i}c`];
+    // Create FaultTable row if missing (Self-Correction)
+    if (!fault) {
+      console.warn(`[Panels/Current] FaultTable missing for ${tableId}. Creating new entry.`);
+      const faultPayload = { node: tableId, faultDuration: {} };
+      for (let i = 1; i <= 20; i++) faultPayload[`p${i}`] = 'G';
+      fault = await models.FaultTable.create(faultPayload);
+    }
 
-        let status = 'G';
-        const vHealth = vNominal > 0 ? (v / vNominal) * 100 : 0;
-        const cHealth = cNominal > 0 ? (c / cNominal) * 100 : 0;
+    console.log(`[Panels/Current] Updating FaultTable for ${tableId}. Nominal V: ${vNominal}, C: ${cNominal}`);
+    let changeCount = 0;
 
-        if (vHealth < 50 || cHealth < 50) {
-          status = 'B';
-        } else if (vHealth < 98 || cHealth < 98) {
-          status = 'M';
-        }
+    // Initialize faultDuration if null (migration safety)
+    if (!fault.faultDuration) fault.faultDuration = {};
+    const faultTimes = { ...fault.faultDuration };
+    let timesChanged = false;
 
-        if (status !== 'G') {
-          console.log(`[Panels/Current] Index ${i}: V=${v}, C=${c} -> Status: ${status} (vH:${vHealth.toFixed(1)}%, cH:${cHealth.toFixed(1)}%)`);
-        }
-        fault[`p${i}`] = status;
+    for (let i = 1; i <= panelCount; i++) {
+      const v = live[`p${i}v`]; // Read back from live instance (which holds updated values)
+      const c = live[`p${i}c`];
+
+      let status = 'G';
+      const vHealth = vNominal > 0 ? (v / vNominal) * 100 : 0;
+      const cHealth = cNominal > 0 ? (c / cNominal) * 100 : 0;
+
+      // Strict thresholds
+      if (vHealth < 50 || cHealth < 50) {
+        status = 'B';
+      } else if (vHealth < 98 || cHealth < 98) {
+        status = 'M';
       }
+
+      const prevStatus = fault[`p${i}`];
+      if (prevStatus !== status) {
+        fault[`p${i}`] = status;
+        changeCount++;
+        if (status !== 'G') {
+          console.log(`[Panels/Current] Panel P${i} status changed to ${status} (V:${v.toFixed(1)}/${vNominal}, C:${c.toFixed(1)}/${cNominal})`);
+          // Start timer if not already set (or if transitioning from another faulty state, keep original time? Usually reset on G->Bad)
+          if (prevStatus === 'G' || !faultTimes[`p${i}`]) {
+            faultTimes[`p${i}`] = new Date().toISOString();
+            timesChanged = true;
+          }
+        } else {
+          // Status became Good, clear timer
+          if (faultTimes[`p${i}`]) {
+            delete faultTimes[`p${i}`];
+            timesChanged = true;
+          }
+        }
+      }
+    }
+
+    if (timesChanged) {
+      fault.faultDuration = faultTimes;
+      // Force update for JSONB changes
+      fault.changed('faultDuration', true);
+      changeCount++;
+    }
+
+    if (changeCount > 0) {
       await fault.save();
+      console.log(`[Panels/Current] Saved ${changeCount} status changes to FaultTable.`);
+    } else {
+      console.log(`[Panels/Current] No status changes detected.`);
     }
 
     console.log(`[Panels/Current] Successfully updated ${tableId}`);
     res.json({ success: true, nodeCurrent: minCurrent });
+
   } catch (error) {
     console.error('[Panels/Current] CRITICAL ERROR:', error);
     res.status(500).json({

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getAllCompanies, getPlantDetails, type PlantDetails, createResolvedTicket, getResolvedTickets, resolvePanel, type ResolvedTicket } from '@/lib/realFileSystem';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { LogOut } from 'lucide-react';
+import { LogOut, ArrowLeft } from 'lucide-react';
 import GradientHeading from '@/components/ui/GradientHeading';
 import { useToast } from '@/hooks/use-toast';
 
@@ -142,47 +142,47 @@ const TechnicianDashboard = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background relative overflow-hidden">
-      <div className="absolute top-4 left-4 z-10 hidden sm:block">
-        <BackButton />
-      </div>
-      <div className="absolute top-4 right-4 z-10 hidden sm:flex items-center gap-2">
-        <div className="flex items-center gap-2 rounded-md border px-2 py-1 text-xs bg-card">
-          <span className={
-            'inline-block w-2.5 h-2.5 rounded-full ' +
-            (connStatus === 'online' ? 'bg-green-500' : connStatus === 'offline' ? 'bg-red-500' : 'bg-gray-400')
-          } />
-          <span>{connStatus === 'online' ? 'Connected' : connStatus === 'offline' ? 'Offline' : 'Unknown'}</span>
-          <Button size="sm" variant="secondary" onClick={checkConnection}>Check</Button>
-        </div>
-        <Button
-          variant="destructive"
-          onClick={() => { logout(); authLogout(); navigate('/login'); }}
-        >
-          <LogOut className="w-4 h-4 mr-2" /> Logout
-        </Button>
-      </div>
-      {/* Mobile top toolbar */}
-      <div className="sm:hidden sticky top-0 z-20 bg-background/90 backdrop-blur border-b">
-        <div className="px-4 py-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span
-              className={
-                'inline-block w-2.5 h-2.5 rounded-full ' +
-                (connStatus === 'online' ? 'bg-green-500' : connStatus === 'offline' ? 'bg-red-500' : 'bg-gray-400')
-              }
-            />
-            <span className="text-xs">{connStatus === 'online' ? 'Connected' : connStatus === 'offline' ? 'Offline' : 'Unknown'}</span>
-            <Button size="sm" variant="secondary" onClick={checkConnection}>Check</Button>
+      <header className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b w-full">
+        <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="hidden sm:block">
+              <BackButton />
+            </div>
+            <div className="block sm:hidden">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-lg font-bold truncate">
+                {user.companyName?.toUpperCase()}
+              </h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">Technician Dashboard</p>
+            </div>
           </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => { logout(); authLogout(); navigate('/login'); }}
-          >
-            <LogOut className="w-4 h-4 mr-1" /> Logout
-          </Button>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden xs:flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] bg-card/50">
+              <span className={
+                'inline-block w-1.5 h-1.5 rounded-full ' +
+                (connStatus === 'online' ? 'bg-green-500' : connStatus === 'offline' ? 'bg-red-500' : 'bg-gray-400')
+              } />
+              <span className="font-medium hidden sm:inline">{connStatus === 'online' ? 'Connected' : 'Offline'}</span>
+              <Button size="xs" variant="ghost" onClick={checkConnection} className="h-4 text-[8px] px-1 ml-1">Refresh</Button>
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => { logout(); authLogout(); navigate('/login'); }}
+              className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-4"
+            >
+              <LogOut className="w-3.5 h-3.5 sm:mr-2" />
+              <span className="hidden xs:inline">Logout</span>
+            </Button>
+          </div>
         </div>
-      </div>
+      </header>
+
       <div className="container mx-auto px-4 py-4 flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Header text above tabs */}
         <div className="mb-4">
@@ -318,6 +318,7 @@ const TechnicianDashboard = () => {
                             <th className="text-left p-3">Node / Panel</th>
                             <th className="text-left p-3">Status</th>
                             <th className="text-left p-3">Health</th>
+                            <th className="text-left p-3">Duration</th>
                             <th className="text-left p-3">Exp. Current</th>
                             <th className="text-left p-3">Actual Current</th>
                             <th className="text-left p-3">Power Loss</th>
@@ -336,7 +337,7 @@ const TechnicianDashboard = () => {
                       </thead>
                       <tbody>
                         {loadingDefects && (
-                          <tr><td className="p-4" colSpan={8}>Loading...</td></tr>
+                          <tr><td className="p-4" colSpan={9}>Loading...</td></tr>
                         )}
                         {defectFilter !== 'resolved' && !loadingDefects && plant && filterRows(
                           getDefectRows(plant, 'all'),
@@ -382,6 +383,7 @@ const TechnicianDashboard = () => {
                                 </span>
                               </div>
                             </td>
+                            <td className="p-3 font-mono text-xs">{row.duration || '-'}</td>
                             <td className="p-3">{row.expCur.toFixed(1)}A</td>
                             <td className="p-3 font-semibold">{row.actCur.toFixed(2)}A</td>
                             <td className="p-3 font-medium text-red-600">{row.powerLoss.toFixed(3)} kW</td>
@@ -418,7 +420,7 @@ const TechnicianDashboard = () => {
                           resolvedIds,
                           { resolvedMeta, start: resolvedFilterStart, end: resolvedFilterEnd, category: resolvedFilterCategory }
                         ).length === 0 && (
-                            <tr><td className="p-4 text-muted-foreground" colSpan={8}>No defects found</td></tr>
+                            <tr><td className="p-4 text-muted-foreground" colSpan={9}>No defects found</td></tr>
                           )}
                         {defectFilter === 'resolved' && !loadingDefects && resolvedTickets.length === 0 && (
                           <tr><td className="p-4 text-muted-foreground" colSpan={6}>No resolved tickets found</td></tr>
@@ -456,6 +458,8 @@ const TechnicianDashboard = () => {
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div className="text-muted-foreground">Duration</div>
+                        <div className="font-mono">{row.duration || '-'}</div>
                         <div className="text-muted-foreground">Exp Cur</div>
                         <div>{row.expCur.toFixed(1)}A</div>
                         <div className="text-muted-foreground">Actual Cur</div>
@@ -626,6 +630,24 @@ const TechnicianDashboard = () => {
 };
 
 // Helpers
+function formatDuration(startTime: string | null | undefined): string {
+  if (!startTime) return '-';
+  const start = new Date(startTime).getTime();
+  const now = Date.now();
+  const diff = now - start;
+
+  if (diff < 0) return '0m';
+
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
 type DefectRow = {
   key: string;
   fault: string;
@@ -638,6 +660,7 @@ type DefectRow = {
   powerLoss: number; // kW
   predictedLoss: number; // kW in 4 hours
   idKey: string; // trackId-fault for backend mapping
+  duration?: string; // Formatted duration string
 };
 
 function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' | 'resolved'): DefectRow[] {
@@ -646,6 +669,7 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
   for (const table of (plant.live_data || [])) {
     const voltages = table.panelVoltages || [];
     const statuses = table.panelStatuses || [];
+    const durations = table.panelFaultDurations || [];
     const actCur = table.current || 0;
     const serial = table.node || table.serialNumber || 'Node';
 
@@ -683,6 +707,8 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
       const tableHash = table.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
       const trackId = `${(124500 + (tableHash % 1000) * 10 + idx).toString()}`;
 
+      const durationStr = formatDuration(durations[idx]);
+
       rows.push({
         key: `${table.id || serial}-${idx}`,
         fault,
@@ -695,6 +721,7 @@ function getDefectRows(plant: PlantDetails, filter: 'all' | 'moderate' | 'bad' |
         powerLoss: Number(powerLossKW.toFixed(3)),
         predictedLoss: Number(predictedLossKW.toFixed(3)),
         idKey: `${trackId}-${fault}`,
+        duration: durationStr
       });
     });
   }

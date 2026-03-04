@@ -277,13 +277,13 @@ const UnifiedLogin = () => {
               Back
             </Button>
 
-            <div className="login-card">
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-48 h-48 sm:w-72 sm:h-72 mb-6">
+            <div className="login-card p-6 sm:p-8">
+              <div className="text-center mb-6 sm:mb-8">
+                <div className="inline-flex items-center justify-center w-32 h-32 xs:w-48 xs:h-48 sm:w-72 sm:h-72 mb-4 sm:mb-6">
                   <img
                     src={logo}
                     alt="Logo"
-                    className="w-48 h-48 sm:w-72 sm:h-72 object-contain"
+                    className="w-full h-full object-contain"
                     onError={(e) => {
                       const target = e.currentTarget as HTMLImageElement;
                       const fallback = target.nextElementSibling as HTMLElement;
@@ -291,12 +291,12 @@ const UnifiedLogin = () => {
                       if (fallback) fallback.style.display = 'flex';
                     }}
                   />
-                  <div className="inline-flex items-center justify-center w-72 h-72 bg-gradient-to-br from-green-500 to-blue-600 rounded-3xl shadow-lg shadow-green-500/25" style={{ display: 'none' }}>
-                    <LogIn className="w-24 h-24 text-white" />
+                  <div className="inline-flex items-center justify-center w-full h-full bg-gradient-to-br from-green-500 to-blue-600 rounded-3xl shadow-lg shadow-green-500/25" style={{ display: 'none' }}>
+                    <LogIn className="w-12 h-12 sm:w-24 sm:h-24 text-white" />
                   </div>
                 </div>
-                <GradientHeading size="lg" className="mb-2">Solar Panel SCADA Solutions</GradientHeading>
-                <p className="text-gray-600 text-base font-medium">Sign in with your credentials</p>
+                <GradientHeading size="md" className="sm:size-lg mb-2 truncate">Solar Analysis Solutions</GradientHeading>
+                <p className="text-gray-600 text-xs sm:text-base font-medium">Sign in with your credentials</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
