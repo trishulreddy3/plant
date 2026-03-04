@@ -8,12 +8,8 @@ export const getApiBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
 
-  // in dev, try to hit the local server
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5000/api';
-  }
-
-  // default for production (Relative path for generic Linux server)
+  // Use relative path for both dev and prod
+  // In dev, Vite proxy forwards /api/* to the backend
   return '/api';
 };
 

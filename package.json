@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tunnel:setup": "bash scripts/setup-cloudflare.sh",
+    "start:all": "bash scripts/start-all.sh",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
